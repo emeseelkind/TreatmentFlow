@@ -35,7 +35,8 @@ P = 10 # number of patients
 B = 5 # number of beds
 H = [[0 for b in range(B)] for p in range(P)] # patient assignment matrix
 
-patients = [random.randint(1,5) for p in range(P)]
+# patients = [random.randint(1,5) for p in range(P)]
+patients = [3,3,3,3,3,3,5,5,4,4]
 
 
 # create variables based on assignment matrix
@@ -123,6 +124,19 @@ for b in range(B):
 
 objective_expr = mathopt.QuadraticExpression(bed_share)
 model.minimize(objective_expr)
+
+"""
+Idea for a linear solver:
+When solving the sum of bed shares squared, the quadratic expression makes solving far more difficult
+To convert the solver into linear, we can change the objective function to minimize
+the difference between the largest bed sum and the smallest bed sum
+This is what is effectively calculated by minimizing the squares, 
+    since outlier high squares blow up the current objective function
+
+This conversion should make the solver execute far faster given B and P, and therefore be far more scalable
+"""
+
+
 
 
 # invoke solver
