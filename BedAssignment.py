@@ -12,7 +12,6 @@ import random
 from ortools.init.python import init
 from ortools.linear_solver import pywraplp
 from ortools.math_opt.python import mathopt
-from ortools.math_opt.python.mathopt import LinearConstraint
 
 
 
@@ -140,14 +139,22 @@ print("Objective value:", result.objective_value())
 
 print("\n---OPTIMAL SOLUTION---")
 
+# print(patients)
+# print()
+
 results_matrix = [[0 for b in range(B)] for p in range(P)]
+
+bed_total = [0 for b in range(B)]
 
 for p in range(P):
     for b in range(B):
         if round(result.variable_values()[H[p][b]]) == 1:
             # print(f"Patient {p} in bed {b}")
             results_matrix[p][b] = 1
-    print(results_matrix[p])
+            bed_total[b] += patients[p]
+    print(patients[p], results_matrix[p])
+
+print("\n ", bed_total)
 
 # for var_val in result.variable_values():
 #     print(result.variable_values()[var_val])
