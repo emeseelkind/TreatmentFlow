@@ -8,6 +8,7 @@ Started: February 2025
 CISC 352: Artificial Intelligence
 """
 
+import random
 from ortools.init.python import init
 from ortools.linear_solver import pywraplp
 from ortools.math_opt.python import mathopt
@@ -23,10 +24,6 @@ if not solver:
 model = mathopt.Model(name="BedsModel")
     
 
-# example list of patient costs (inverse of priority)
-patients = [1,1,2,2,3,3,4,4,5,5]
-
-
 # variables
 """
 The variables in the problem are represented by an assignment matrix H
@@ -37,7 +34,10 @@ Each variable will be a space in this matrix, denoted by H_p_b, and will be a bo
 
 P = 10 # number of patients
 B = 5 # number of beds
-H = [[0 for b in range(B)] for p in range(P)]
+H = [[0 for b in range(B)] for p in range(P)] # patient assignment matrix
+
+patients = [random.randint(1,5) for p in range(P)]
+
 
 # create variables based on assignment matrix
 for p in range(P):
@@ -80,10 +80,12 @@ for p in range(P):
 
         # constraints[p].terms.append(LinearConstraint.Term(variable=H[p][b], coefficient=1))
 
+    # print(f"Patient {p}:", expr)
+
     model_expr = mathopt.LinearExpression(expr)
 
     # add row (patient) constraint to model
-    model.add_linear_constraint(model_expr == 1)
+    model.add_linear_constraint((1 <= model_expr) <= 1)
 
     # model.add_linear_constraint(constraints[p])
     # model.add
@@ -120,17 +122,32 @@ for b in range(B):
 
     bed_share = bed_share + expr * expr
 
-objective_expr = mathopt.LinearExpression(bed_share)
+objective_expr = mathopt.QuadraticExpression(bed_share)
 model.minimize(objective_expr)
 
 
 # invoke solver
 params = mathopt.SolveParameters(enable_output=True)
 
-result = mathopt.solve(model, mathopt.SolverType.GLOP, params=params)
+result = mathopt.solve(model, mathopt.SolverType.GSCIP, params=params)
 if result.termination.reason != mathopt.TerminationReason.OPTIMAL:
     raise RuntimeError(f"model failed to solve: {result.termination}")
 
 # Print some information from the result.
 print("MathOpt solve succeeded")
 print("Objective value:", result.objective_value())
+
+
+print("\n---OPTIMAL SOLUTION---")
+
+results_matrix = [[0 for b in range(B)] for p in range(P)]
+
+for p in range(P):
+    for b in range(B):
+        if round(result.variable_values()[H[p][b]]) == 1:
+            # print(f"Patient {p} in bed {b}")
+            results_matrix[p][b] = 1
+    print(results_matrix[p])
+
+# for var_val in result.variable_values():
+#     print(result.variable_values()[var_val])
