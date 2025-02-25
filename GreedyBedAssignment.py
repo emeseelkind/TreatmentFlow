@@ -34,6 +34,28 @@ Summary of approach:
                         POTENTIAL ISSUE: how to avoid low-priority starvation
 """
 
+# bed class
+class Bed:
+    def __init__(self, id=0) -> None:
+        self.id = id
+        self.occupied = False
+        self.occupant = None
+
+    def assign(self, patient):
+        if not type(patient) == Patient:
+            raise TypeError("The value to be assigned to a bed not type Patient")
+        
+        self.occupied = True
+        self.occupant = patient
+
+    def discharge(self):
+        patient = self.occupant
+
+        self.occupied = False
+        self.occupant = None
+
+        return patient
+
 # patient class includes information about each individual patient
 class Patient:
     def __init__(self, id=0, priority=0, arrival_time=0) -> None:
@@ -52,17 +74,31 @@ class Patient:
             hours += 1
             minutes -= 60
 
-        return f"{hours}:{minutes}"
+        print_min = str(minutes)
+        if minutes < 10:
+            print_min = f"0{minutes}"
 
+        return f"{hours}:{print_min}"
+    
 # patient records class includes information about every patient in the hospital
-class Patient_Records:
-    def __init__(self) -> None:
+class HospitalRecords:
+    def __init__(self, NUM_BEDS=0) -> None:
+        # patient information
         self.patient_list = []
         self.unserved = []
-        self.max_id = 0
+        self.max_patient_id = 0
+
+        # resource information
+        self.NUM_BEDS = NUM_BEDS
+        self.beds_available = NUM_BEDS
+
+        self.beds = []
+        for i in range(NUM_BEDS):
+            new_bed = Bed(i)
+            self.beds.append(new_bed)
 
     def gen_patient_list(self, numpatients):
-        self.max_id = 0
+        self.max_patient_id = 0
         plist = []
         
         for i in range(numpatients):
@@ -72,7 +108,7 @@ class Patient_Records:
             plist.append(new_patient)
             self.insert_unserved(new_patient)
 
-            self.max_id += 1
+            self.max_patient_id += 1
 
         self.patient_list = plist
 
@@ -80,13 +116,13 @@ class Patient_Records:
         if not type(patient) == Patient:
             raise TypeError("The value inserted to the patient_list is not type Patient")
         
-        self.max_id += 1
+        self.max_patient_id += 1
         self.patient_list.append(patient)
         self.insert_unserved(patient)
 
     def insert_unserved(self, patient):
         if not type(patient) == Patient:
-            raise TypeError("The value inserted to the patient_list is not type Patient")
+            raise TypeError("The value inserted to the unserved list is not type Patient")
         
         if patient not in self.unserved:
             for i in range(len(self.unserved)):
@@ -99,9 +135,39 @@ class Patient_Records:
                         return
             self.unserved.append(patient)
 
+    def serve_next_patient(self):
+        if self.unserved:
+            next_patient = self.unserved[0]
+            self.unserved = self.unserved[1:]
 
-records = Patient_Records()
-records.gen_patient_list(5)
+            if self.beds_available:
+                for bed in self.beds:
+                    if not bed.occupied:
+                        bed.assign(next_patient)
+                        bed.occupied = True
+
+                        self.beds_available -= 1
+                        return
+    
+    def discharge_patient(self, patient):
+        if not type(patient) == Patient:
+            raise TypeError("The patient to be discharged is not type Patient")
+        
+        for bed in self.beds:
+            if bed.occupant == patient:
+                bed.occupant = None
+                bed.occupied = False
+
+                self.beds_available += 1
+                return
+            
+    def serve_patients(self):
+        while self.beds_available:
+            self.serve_next_patient()
+                
+        
+records = HospitalRecords(5)
+records.gen_patient_list(10)
 
 print("PATIENTS:")
 for patient in records.patient_list:
@@ -110,3 +176,25 @@ for patient in records.patient_list:
 print("UNSERVED:")
 for patient in records.unserved:
     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}")
+
+print("SERVING PATIENTS")
+records.serve_patients()
+for bed in records.beds:
+    print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}")
+print("UNSERVED:")
+for patient in records.unserved:
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}")
+
+"""
+Now that problem formulation is complete, we can calculate constraints and solutions given an objective function
+
+Proposed objective function: 
+    - minimize the wait times for each patient, making where high-priority patients wait times is minimized the most
+        - medium-priority wait times are minimized second, etc.
+
+Proposed constraints:
+    - cannot assign a patient to an occupied bed
+    - cannot assign a lower priority patient when a higher priority patient is waiting
+    - must assign (or queue) every patient in the list of patients
+"""
+
