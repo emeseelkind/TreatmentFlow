@@ -58,14 +58,28 @@ class Bed:
 
 # patient class includes information about each individual patient
 class Patient:
-    def __init__(self, id=0, priority=0, arrival_time=0) -> None:
+    def __init__(self, id=0, priority=0, arrival_time=0, service_time=0) -> None:
         self.id = id
         self.priority = priority
         self.arrival_time = arrival_time
+        self.service_time = service_time
 
     def gen_rand_patient(self):
         self.priority = random.randint(1,5)
         self.arrival_time = random.randint(1,1440)
+        self.set_service_time()
+
+    def set_service_time(self):
+        if self.priority == 1:
+            self.service_time = random.randint(10, 60)
+        elif self.priority == 2:
+            self.service_time = random.randint(20, 90)
+        elif self.priority == 3:
+            self.service_time = random.randint(30, 180)
+        elif self.priority == 4:
+            self.service_time = random.randint(60, 360)
+        elif self.priority == 5:
+            self.service_time = random.randint(120, 500)
 
     def arrival_time_printed(self):
         hours = 0
@@ -80,6 +94,20 @@ class Patient:
 
         return f"{hours}:{print_min}"
     
+    def service_time_printed(self):
+        hours = 0
+        minutes = self.service_time
+        while minutes >= 60:
+            hours += 1
+            minutes -= 60
+
+        print_min = str(minutes)
+        if minutes < 10:
+            print_min = f"0{minutes}"
+
+        return f"{hours}:{print_min}"
+        
+     
 # patient records class includes information about every patient in the hospital
 class HospitalRecords:
     def __init__(self, NUM_BEDS=0) -> None:
@@ -171,19 +199,19 @@ records.gen_patient_list(10)
 
 print("PATIENTS:")
 for patient in records.patient_list:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}")
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
 print("UNSERVED:")
 for patient in records.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}")
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
 print("SERVING PATIENTS")
 records.serve_patients()
 for bed in records.beds:
-    print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}")
+    print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}, --- {bed.occupant.service_time_printed()}")
 print("UNSERVED:")
 for patient in records.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}")
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
 """
 Now that problem formulation is complete, we can calculate constraints and solutions given an objective function
@@ -197,4 +225,3 @@ Proposed constraints:
     - cannot assign a lower priority patient when a higher priority patient is waiting
     - must assign (or queue) every patient in the list of patients
 """
-
