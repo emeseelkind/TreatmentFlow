@@ -4,8 +4,8 @@ import pyreadr
 import os
 
 # Specify the path to your .rdata file
-rdata_file = 'path/to/your/5v_cleandf.rdata'  # Change this to your file location
-csv_file = 'converted_data.csv'  # Output CSV file name
+rdata_file = 'C:/Users/emese/Desktop/TreatmentFlow-1/5v_cleandf.rdata'
+# csv_file = 'hospital_triage_patient_data.csv'  # Output CSV file name
 
 # Check if the file exists
 if not os.path.exists(rdata_file):
@@ -31,6 +31,16 @@ if df is None:
 print("First 5 rows of the DataFrame:")
 print(df.head())
 
+# file is too bit so we extract every 5th row
+# Extract every other row (start at index 0 and step by 2)
+every_other_row = df.iloc[::75]
+
+# Specify the output file path
+output_file_path = 'C:/Users/emese/Desktop/TreatmentFlow/new_hospital_data_75.csv'
+
+# Save the result to a new CSV file
+every_other_row.to_csv(output_file_path, index=False)
+
 # Save to CSV
-df.to_csv(csv_file, index=False)
-print(f"DataFrame saved as {csv_file}")
+# df.to_csv(csv_file, index=False)
+print(f"DataFrame saved as {output_file_path}")
