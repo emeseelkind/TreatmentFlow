@@ -34,6 +34,19 @@ Summary of approach:
                         POTENTIAL ISSUE: how to avoid low-priority starvation
 """
 
+def print_time(my_time):
+    hours = 0
+    minutes = my_time
+    while minutes >= 60:
+        hours += 1
+        minutes -= 60
+
+    print_min = str(minutes)
+    if minutes < 10:
+        print_min = f"0{minutes}"
+
+    return f"{hours}:{print_min}"
+
 # bed class
 class Bed:
     def __init__(self, id=0) -> None:
@@ -63,6 +76,7 @@ class Patient:
         self.priority = priority
         self.arrival_time = arrival_time
         self.service_time = service_time
+        self.service_start = -1
 
     def gen_rand_patient(self):
         self.priority = random.randint(1,5)
@@ -81,31 +95,19 @@ class Patient:
         elif self.priority == 5:
             self.service_time = random.randint(120, 500)
 
+    def set_service_start(self, service_start):
+        self.service_start = service_start
+
+    def get_waiting_time(self):
+        if self.service_start == -1:
+            return 0.1 # signifies that the patient was not served in the day
+        return self.service_start - self.arrival_time
+
     def arrival_time_printed(self):
-        hours = 0
-        minutes = self.arrival_time
-        while minutes >= 60:
-            hours += 1
-            minutes -= 60
-
-        print_min = str(minutes)
-        if minutes < 10:
-            print_min = f"0{minutes}"
-
-        return f"{hours}:{print_min}"
+        return print_time(self.arrival_time)
     
     def service_time_printed(self):
-        hours = 0
-        minutes = self.service_time
-        while minutes >= 60:
-            hours += 1
-            minutes -= 60
-
-        print_min = str(minutes)
-        if minutes < 10:
-            print_min = f"0{minutes}"
-
-        return f"{hours}:{print_min}"
+        return print_time(self.service_time)
         
      
 # patient records class includes information about every patient in the hospital
@@ -114,6 +116,7 @@ class HospitalRecords:
         # patient information
         self.patient_list = []
         self.unserved = []
+        self.serving = []
         self.max_patient_id = 0
 
         # resource information
@@ -163,24 +166,32 @@ class HospitalRecords:
                         return
             self.unserved.append(patient)
 
-    def serve_next_patient(self):
-        if self.unserved:
-            next_patient = self.unserved[0]
-            self.unserved = self.unserved[1:]
-
-            if self.beds_available:
-                for bed in self.beds:
-                    if not bed.occupied:
-                        bed.assign(next_patient)
-                        bed.occupied = True
-
-                        self.beds_available -= 1
-                        return
+    def serve_patients(self):
+        while self.beds_available and self.unserved:
+            self.serve_patient(self.unserved[0])
     
+    def serve_patient(self, patient):
+        if not type(patient) == Patient:
+            raise TypeError("The patient to be served is not type Patient")
+        
+        if self.beds_available:
+            self.unserved.remove(patient)
+            self.serving.append(patient)
+
+            for bed in self.beds:
+                if not bed.occupied:
+                    bed.assign(patient)
+                    bed.occupied = True
+                    
+                    self.beds_available -= 1
+                    return
+
     def discharge_patient(self, patient):
         if not type(patient) == Patient:
             raise TypeError("The patient to be discharged is not type Patient")
         
+        self.serving.remove(patient)
+
         for bed in self.beds:
             if bed.occupant == patient:
                 bed.occupant = None
@@ -189,30 +200,7 @@ class HospitalRecords:
                 self.beds_available += 1
                 return
             
-    def serve_patients(self):
-        while self.beds_available:
-            self.serve_next_patient()
                 
-        
-records = HospitalRecords(5)
-records.gen_patient_list(10)
-
-print("PATIENTS:")
-for patient in records.patient_list:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-print("UNSERVED:")
-for patient in records.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-print("SERVING PATIENTS")
-records.serve_patients()
-for bed in records.beds:
-    print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}, --- {bed.occupant.service_time_printed()}")
-print("UNSERVED:")
-for patient in records.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
 """
 Now that problem formulation is complete, we can calculate constraints and solutions given an objective function
 
@@ -225,3 +213,108 @@ Proposed constraints:
     - cannot assign a lower priority patient when a higher priority patient is waiting
     - must assign (or queue) every patient in the list of patients
 """
+
+class Scheduler:
+    def __init__(self, Hospital) -> None:
+        if not type(Hospital) == HospitalRecords:
+            raise TypeError("The Hospital to be scheduled not type Hospital")
+        
+        self.Hospital = Hospital
+
+    def run_hospital(self):
+        for minute in range(1440):
+            change_made = False
+
+            for patient in self.Hospital.serving:
+                if minute - patient.service_start >= patient.service_time:
+                    self.Hospital.discharge_patient(patient)
+                    change_made = True
+                    print(f"Discharging {patient.id}")
+
+            for patient in self.Hospital.unserved:
+                # print(patient.arrival_time)
+                if patient.arrival_time <= minute:
+                    if self.Hospital.beds_available:
+                        self.Hospital.serve_patient(patient)
+                        patient.service_start = minute
+                        change_made = True
+                        print(f"Serving {patient.id}")
+            
+            # print current arrangement
+            if change_made:
+                self.print_arrangement(minute)
+                queue = ""
+                for patient in self.Hospital.unserved:
+                    if patient.arrival_time <= minute:
+                        queue = queue + f" {patient.id}:{patient.priority}"
+                print(f"Queue: {queue}")
+                    
+    def waiting_times(self):
+
+        waiting_times_list = []
+        for i in range(len(self.Hospital.patient_list)):
+            current_patient = self.Hospital.patient_list[i]
+            my_waiting_time = current_patient.get_waiting_time()
+            
+            if my_waiting_time > 0:
+
+                waiting_times_index = 0
+                while (waiting_times_index < len(waiting_times_list)) and (my_waiting_time < waiting_times_list[waiting_times_index].get_waiting_time()):
+                    waiting_times_index += 1
+                
+                waiting_times_list.insert(waiting_times_index, current_patient)
+
+        print("\n--Waiting Times--")
+        for patient in waiting_times_list:
+            print(f"id: {patient.id}, pri: {patient.priority}, wait: {patient.get_waiting_time()}")
+                    
+    def print_arrangement(self, time):
+
+        WIDTH = 10
+
+        bed_print = []
+        row = []
+
+        for bed in self.Hospital.beds:
+            if bed.id % WIDTH == 0:
+                if bed.id != 0:
+                    bed_print.append(row)
+                row = []
+                
+            if bed.occupied:
+                row.append(f"{bed.occupant.id}:{bed.occupant.priority}")
+            else:
+                row.append("   ")
+
+        bed_print.append(row)
+
+        # printing array
+        print(f"\n--HOSPITAL AT {print_time(time)}--")
+        for this_row in bed_print:
+            print(this_row)
+
+# running hospital simulation without constraint satisfacation
+records = HospitalRecords(60) # change value to change number of beds
+records.gen_patient_list(500) # change value to change number of patients
+
+print("PATIENTS:")
+for patient in records.patient_list:
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+
+print("UNSERVED:")
+for patient in records.unserved:
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+
+# NON-TIME BOUNDED SERVING OF PATIENTS
+# print("SERVING PATIENTS")
+# records.serve_patients()
+# for bed in records.beds:
+#     print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}, --- {bed.occupant.service_time_printed()}")
+# print("UNSERVED:")
+# for patient in records.unserved:
+#     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+
+# running the hospital simulation
+scheduler = Scheduler(records)
+scheduler.run_hospital()
+scheduler.waiting_times()
