@@ -40,17 +40,17 @@ Summary of approach:
 
 # running hospital simulation without constraint satisfacation
 B = 10  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 75  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+P = 10  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
 
-records = HospitalRecords(B)
-records.gen_patient_list(P)
+hospital = HospitalRecords(B)
+hospital.gen_patient_list(P)
 
 print("\nPATIENTS:")
-for patient in records.patient_list:
+for patient in hospital.patient_list:
     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
 print("\nUNSERVED:")
-for patient in records.unserved:
+for patient in hospital.unserved:
     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
 # NON-TIME BOUNDED SERVING OF PATIENTS
@@ -63,7 +63,7 @@ for patient in records.unserved:
 #     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
 # running the hospital simulation
-scheduler = Scheduler(records)
+scheduler = Scheduler(hospital)
 scheduler.run_hospital()
 scheduler.waiting_times()
 
@@ -81,29 +81,126 @@ Proposed constraints:
     - must assign (or queue) every patient in the list of patients
 """
 
+print("\n\n--- SOLVING SECTION ---")
+
 # create solver
-# solver = pywraplp.Solver.CreateSolver("GLOP")
-# if not solver:
-#     raise Exception("Could not create solver GLOP")
+solver = pywraplp.Solver.CreateSolver("GLOP")
+if not solver:
+    raise Exception("Could not create solver GLOP")
+
+# create variables
+"""
+For the variables, we are adding a 'bed' for each minute of the day
+-   in each bed (at that minute), the domain is each integer in range(number of patients)
+-   if a bed is given the value k, it is occupied by patient k at that minute
+"""
+
+timeline = [[0 for b in range(B)] for m in range(1440)] # 1440 minutes in 24 hours
+
+for minute in range(1440):
+    for bed in range(B):
+        timeline[minute][bed] = solver.IntVar(0, P-1, f"bed_{bed}_at_{minute}")
+
+# print(timeline)
+
+
+
 
 # bed assignment constraints
 """
+Patient arrival time consideration
+-   a patient can only be assigned a bed when they have already arrived at the hospital
+
+Patient to bed exclusivity
+-   a patient can only be assigned a bed when there is no other patient in it
+
 Patient contiguousness
--   a patent being assigned to a bed will be assigned for a congiguous period
+-   a patent being assigned to a bed will be assigned for a contiguous period
 
 Patient tenure
 -   the difference between the final minute where a patient is assigned and the first
     cannot exceed the patient's service time
     -   for every minute where a patient is assigned to a bed (where value is true),
         the variable in the same bed (service_time) minutes ago is not the same patient (or no patient)
+
 -   the difference between the final minute where a patient is assigned and the first
     MUST equal the patient's service time, unless:
     -   (final minute of day - first minute of patient assignment) < service time
-
-Patient to bed exclusivity
--   a patient can only be assigned a bed when there is no other patient in it
-
-Patient arrival time consideration
--   a patient can only be assigned a bed when they have already arrived at the hospital
 """
 
+# IMPORTANT NOTE: MAKE SURE MINUTES CAN BE SET TO 'NO PATIENT'
+
+# patient-based constraints
+for minute in range(1440):
+    for bed in range(B):
+        for p in range(P):
+            arrival = hospital.patient_list[p].arrival_time
+            service = hospital.patient_list[p].service_time
+
+            # patient cannot be served before their arrival
+            if arrival < minute:
+                # solver.Add(timeline[minute][bed] != p)
+                # this can be added with a different command
+                foo = 0
+
+            else: # other constraints are irrelevant if this minute cannot be assigned
+
+                # patient cannot be in bed longer than their service time
+                if minute - service >= 0:
+                    # solver.Add(timeline[minute][bed] != timeline[minute - service][bed])
+                    # this can be added with a different command
+                    foo = 0
+
+                # patient contiguousness
+                """
+                if [minute] == patient and [minute - x] == patient
+                    [minute - 1] == patient
+                    [minute - 2] == patient
+                    ...
+                    [minute - (x-1)] = patient
+                """
+
+                # patient cannot be discharged early
+                """
+                if ([minute - 1] != patient) and ([minute] == patient):
+                    if minute + service < 1440:
+                        [minute + service] == patient
+                    else:
+                        [final minute] == patient
+                """
+
+
+
+
+# objective function
+"""
+Objective function
+-   minimize the wait times of patients, with higher-priority patients scaled such 
+    that their wait times are more punishing if long (multiply wait times by patient cost)
+"""
+
+weighted_wait_times = 0
+for minute in range(1440):
+    for bed in range(B):
+        for p in range(P):
+            arrival = hospital.patient_list[p].arrival_time
+            priority = hospital.patient_list[p].priority
+
+            # add wait time * priority to objective expression
+            """
+            if ([minute - 1] != patient) and ([minute] == patient):
+                weighted_wait_times = weighted_wait_times + (minute - arrival) * priority
+            """
+
+solver.Minimize(weighted_wait_times)
+
+# ---------------------------------
+
+# solving to achieve results
+result = solver.Solve()
+
+if result == pywraplp.Solver.OPTIMAL:
+    print("Solution:")
+    print("Objective value =", solver.Objective().Value())
+    for bed in range(B):
+        print(f"Bed {bed} =", timeline[0][bed].solution_value())
