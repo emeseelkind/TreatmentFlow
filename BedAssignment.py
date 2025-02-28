@@ -35,8 +35,8 @@ P = 10 # number of patients
 B = 5 # number of beds
 H = [[0 for b in range(B)] for p in range(P)] # patient assignment matrix
 
-# patients = [random.randint(1,5) for p in range(P)]
-patients = [3,3,3,3,3,3,5,5,4,4]
+patients = [random.randint(1,5) for p in range(P)]
+#patients = [3,3,3,3,3,3,5,5,4,4]
 
 
 # create variables based on assignment matrix

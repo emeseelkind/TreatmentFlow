@@ -294,8 +294,8 @@ class Scheduler:
             print(this_row)
 
 # running hospital simulation without constraint satisfacation
-records = HospitalRecords(60) # change value to change number of beds
-records.gen_patient_list(500) # change value to change number of patients
+records = HospitalRecords(10)   # CHANGE VALUE TO CHANGE NUMBER OF BEDS
+records.gen_patient_list(75)    # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
 
 print("PATIENTS:")
 for patient in records.patient_list:
