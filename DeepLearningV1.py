@@ -14,22 +14,6 @@ DNN (Deep Neural Network) supervised classification model for patient triage and
 """
 
 """
-Step 1: Import Libraries. 
-Step 2: Load and Preprocess the Data. 
-    collect labeled data relevant to your problem, 
-    prepare the data by cleaning and preprocessing it, 
-
-Step 3: Build the Model. 
-    select a suitable machine learning algorithm, 
-
-Step 4: Train the Model. 
-    train the model on the training data, 
-
-Step 5: Evaluate the Model. 
-    evaluate its performance on a separate test set, 
-    and finally deploy the model to make predictions on new data
-"""
-"""
 Step 1: Import Libraries
 sklearn and tensorflow libraries used for data preprocessing and deep learning model building
 """
@@ -44,14 +28,21 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-#from tensorflow.keras.utils import to_categorical
+# For building the deep learning model
 from sklearn.neural_network import MLPClassifier
+# For evaluating the model
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import GridSearchCV
+# For saving the model
 import joblib
+# For timing the training process
 import time
 
-
+"""
+Step 2: Load and Preprocess the Data. 
+    collect labeled data relevant to your problem, 
+    prepare the data by cleaning and preprocessing it
+"""
 def load_data(file_path):
     
     print(f"Loading data from {file_path}...")
@@ -131,7 +122,10 @@ def preprocess_data(DataFrame):
     print(f"\nPreprocessed test data shape: {x_test.shape}")
     
     return x_train, x_test, y_train, y_test , preprocessor
-
+"""
+Step 3: Build the Model. 
+    select a suitable machine learning algorithm, 
+"""
 def build_model(x_train, y_train, x_test, y_test):
     """Build the deep learning model for priority prediction"""
     print("\nBuilding deep learning model...")
@@ -154,71 +148,11 @@ def build_model(x_train, y_train, x_test, y_test):
         verbose=True                   # Display progress during training
     )
     return model , start_time
+"""
+Step 4: Train the Model. 
+    train the model on the training data, 
+"""
 
-def train_model(model, start_time, x_train, y_train):
-    """Train the deep learning model"""
-    print("\nTraining deep learning model...")
-    # Train the model
-    model.fit(x_train, y_train)
-    # Calculate training time
-    training_time = time.time() - start_time
-    print(f"\nTraining completed in {training_time:.2f} seconds")
-
-    print("\nModel training complete.")
-    # Save the trained model
-    joblib.dump(model, 'patient_priority_model.pkl')
-    print("\nModel saved as patient_priority_model.pkl")
-    return model, start_time
-
-def evaluate_model(model, start_time, x_test, y_test):
-    """Evaluate the deep learning model"""
-    # Evaluate the model
-    y_pred = model.predict(x_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"\nModel accuracy: {accuracy:.2f}")
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
-    print("\nConfusion Matrix:")
-    print(confusion_matrix(y_test, y_pred))
-
-    # Create and save confusion matrix visualization
-    cm = confusion_matrix(y_test, y_pred)
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title('Confusion Matrix for Patient Priority Prediction')
-    plt.ylabel('Actual Priority (ESI)')
-    plt.xlabel('Predicted Priority (ESI)')
-    plt.savefig('confusion_matrix.png')
-    plt.close()
-    print("\nConfusion matrix saved as 'confusion_matrix.png'")
-
-    # Save the model
-    joblib.dump(model, 'patient_priority_model.pkl')
-    print("\nModel saved as patient_priority_model.pkl")
-
-    # Print the total time taken
-    end_time = time.time()
-    total_time = end_time - start_time
-    print(f"\nTotal time taken: {total_time:.2f} seconds")
-    return model
-
-def predict_priority(model, sample_patients, preprocessor, priority_mapping):
-    """Predict patient priority using the trained model"""
-    print("\nPredicting patient priority for sample patients...")
-    new_data_processed = preprocessor.transform(new_data)
-    # Get predictions
-    predictions = model.predict(new_data_processed)
-    probabilities = model.predict_proba(new_data_processed)
-    # Create a results dataframe
-    results = pd.DataFrame({
-        'predicted_priority': predictions,
-        'priority_description': [priority_mapping[p] for p in predictions]
-    })
-    # Add probability for each priority level
-    for i in range(1, 6):
-        results[f'probability_priority_{i}'] = probabilities[:, i-1]
-    
-    return results
 
 def main():
     # Initialize the model
@@ -259,6 +193,6 @@ def main():
         print("\nFeature importance not available for this model type.")
 
     print("\nTreatmentFlow Deep Learning module completed successfully!")
-    
+
 if __name__ == "__main__":
     main()
