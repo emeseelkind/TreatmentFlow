@@ -177,8 +177,8 @@ def train_model(model, start_time, x_train, y_train):
 
 """
 Step 5: Evaluate the Model. 
-    evaluate its performance on a separate test set, 
-    and finally deploy the model to make predictions on new data
+    - Evaluate its performance on a separate test set, 
+    - And finally deploy the model to make predictions on new data
 """
 def evaluate_model(model, start_time, x_test, y_test):
     """Evaluate the deep learning model"""
