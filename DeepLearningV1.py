@@ -178,7 +178,6 @@ def train_model(model, start_time, x_train, y_train):
 """
 Step 5: Evaluate the Model. 
     - Evaluate its performance on a separate test set, 
-    - And finally deploy the model to make predictions on new data
 """
 def evaluate_model(model, start_time, x_test, y_test):
     """Evaluate the deep learning model"""
@@ -211,7 +210,10 @@ def evaluate_model(model, start_time, x_test, y_test):
     total_time = end_time - start_time
     print(f"\nTotal time taken: {total_time:.2f} seconds")
     return model
-
+"""
+Step 6: Use the Model. 
+    - Deploy the model to make predictions on new data
+"""
 def predict_priority(model, sample_patients, preprocessor, priority_mapping):
     """Predict patient priority using the trained model"""
     print("\nPredicting patient priority for sample patients...")
