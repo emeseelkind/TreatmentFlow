@@ -78,10 +78,11 @@ def preprocess_data(DataFrame):
     print("\nPreprocessing data...")
     # Drop columns not needed for model training like non-medical demographic data
     exclude_cols = ['dep_name','esi','lang','religion','maritalstatus','employstatus','insurance_status']  # Add any other columns to exclude
-    feature_cols = []
-    for col in DataFrame.columns:
-        if col not in exclude_cols:
-            feature_cols.append(col)
+    #feature_cols = []
+    #for col in DataFrame.columns:
+     #   if col not in exclude_cols:
+      #      feature_cols.append(col)
+    feature_cols = [col for col in DataFrame.columns if col not in exclude_cols]
     # print(f"Feature columns: {feature_cols}") - works
 
     # Split numeric and categorical features (use numpy)
@@ -100,8 +101,9 @@ def preprocess_data(DataFrame):
         ('scaler', StandardScaler())])
     
     categorical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='most_frequent', fill_value='missing')),
+        ('imputer', SimpleImputer(strategy='most_frequent')),
         ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+    
     print("\nColumnTransformer")
     preprocessor = ColumnTransformer(
         transformers=[
@@ -111,9 +113,15 @@ def preprocess_data(DataFrame):
     x = DataFrame[feature_cols]  # Features
     y = DataFrame['esi'].values  # Target (Emergency Severity Index)
     
+    # Handle NaN values in y
+    if np.isnan(y).any():
+        print("\nWarning: y contains NaN values. Imputing with most frequent value.")
+        y_imputer = SimpleImputer(strategy='most_frequent')
+        y = y_imputer.fit_transform(y.reshape(-1, 1)).ravel()
+
     # Split the data into 80% training and 20% testing
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
-    print("\nfit_transform")
+    print("\nApplying transformations")
     # Apply preprocessing - preprocessor from sklearn
     x_train = preprocessor.fit_transform(x_train)
     x_test = preprocessor.transform(x_test)
@@ -126,7 +134,7 @@ def preprocess_data(DataFrame):
 Step 3: Build the Model. 
     select a suitable machine learning algorithm, 
 """
-def build_model(x_train, y_train, x_test, y_test):
+def build_model(x_train, x_test, y_train, y_test):
     """Build the deep learning model for priority prediction"""
     print("\nBuilding deep learning model...")
     # Create an MLPClassifier (Multi-Layer Perceptron - Neural Network)
@@ -152,7 +160,79 @@ def build_model(x_train, y_train, x_test, y_test):
 Step 4: Train the Model. 
     train the model on the training data, 
 """
+def train_model(model, start_time, x_train, y_train):
+    """Train the deep learning model"""
+    print("\nTraining deep learning model...")
+    # Train the model
+    model.fit(x_train, y_train)
+    # Calculate training time
+    training_time = time.time() - start_time
+    print(f"\nTraining completed in {training_time:.2f} seconds")
 
+    print("\nModel training complete.")
+    # Save the trained model
+    joblib.dump(model, 'patient_priority_model.pkl')
+    print("\nModel saved as patient_priority_model.pkl")
+    return model
+
+"""
+Step 5: Evaluate the Model. 
+    evaluate its performance on a separate test set, 
+    and finally deploy the model to make predictions on new data
+"""
+def evaluate_model(model, start_time, x_test, y_test):
+    """Evaluate the deep learning model"""
+    # Evaluate the model
+    y_pred = model.predict(x_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"\nModel accuracy: {accuracy:.2f}")
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred))
+    print("\nConfusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+
+    # Create and save confusion matrix visualization
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title('Confusion Matrix for Patient Priority Prediction')
+    plt.ylabel('Actual Priority (ESI)')
+    plt.xlabel('Predicted Priority (ESI)')
+    plt.savefig('confusion_matrix.png')
+    plt.close()
+    print("\nConfusion matrix saved as 'confusion_matrix.png'")
+
+    # Save the model
+    joblib.dump(model, 'patient_priority_model.pkl')
+    print("\nModel saved as patient_priority_model.pkl")
+
+    # Print the total time taken
+    end_time = time.time()
+    total_time = end_time - start_time
+    print(f"\nTotal time taken: {total_time:.2f} seconds")
+    return model
+
+def predict_priority(model, sample_patients, preprocessor, priority_mapping):
+    """Predict patient priority using the trained model"""
+    print("\nPredicting patient priority for sample patients...")
+    new_data_processed = preprocessor.transform(sample_patients)
+    # Get predictions
+    predictions = model.predict(new_data_processed)
+    probabilities = model.predict_proba(new_data_processed)
+    # Create a results dataframe
+    results = pd.DataFrame({
+        'predicted_priority': predictions,
+        'priority_description': [priority_mapping[p] for p in predictions]
+    })
+    # Add probability for each priority level
+    for i in range(1, 6):
+        class_idx = model.classes_.tolist().index(i) if i in model.classes_ else -1
+        if class_idx >= 0:
+            results[f'probability_priority_{i}'] = probabilities[:, class_idx]
+        else:
+            results[f'probability_priority_{i}'] = 0.0
+    
+    return results
 
 def main():
     # Initialize the model
@@ -167,9 +247,9 @@ def main():
             4: "Semi-Urgent",
             5: "Non-Urgent"
         }
-    model, start_time = build_model(x_train, y_train, x_test, y_test)
+    model, start_time = build_model(x_train, x_test, y_train, y_test)
     # Train the model
-    model, start_time = train_model(model, start_time, x_train, y_train)
+    model = train_model(model, start_time, x_train, y_train)
 
     # Evaluate the model    
     model = evaluate_model(model, start_time, x_test, y_test)
@@ -180,7 +260,7 @@ def main():
 
     # Display results
     print("\nSample Patient Predictions:")
-    print(predictions[['predicted_priority', 'priority_description']])
+    print(results[['predicted_priority', 'priority_description']])
     
     print("\nTreatmentFlow Deep Learning module completed successfully!")
     
