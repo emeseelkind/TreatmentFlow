@@ -75,7 +75,7 @@ def load_data(file_path):
 
 def preprocess_data(DataFrame):
     """Preprocess data for model training"""
-    print("\nPreprocessing data...")
+    
     # Drop columns not needed for model training like non-medical demographic data
     exclude_cols = ['dep_name','esi','lang','religion','maritalstatus','employstatus','insurance_status']  # Add any other columns to exclude
     #feature_cols = []
@@ -104,7 +104,6 @@ def preprocess_data(DataFrame):
         ('imputer', SimpleImputer(strategy='most_frequent')),
         ('onehot', OneHotEncoder(handle_unknown='ignore'))])
     
-    print("\nColumnTransformer")
     preprocessor = ColumnTransformer(
         transformers=[
             ('num', numeric_transformer, num_features.columns),
@@ -136,7 +135,7 @@ Step 3: Build the Model.
 """
 def build_model(x_train, x_test, y_train, y_test):
     """Build the deep learning model for priority prediction"""
-    print("\nBuilding deep learning model...")
+    
     # Create an MLPClassifier (Multi-Layer Perceptron - Neural Network)
     start_time = time.time()
 
@@ -155,6 +154,8 @@ def build_model(x_train, x_test, y_train, y_test):
         random_state=42,               # Random seed for reproducibility
         verbose=True                   # Display progress during training
     )
+    print("\nModel created:")
+    print(model)
     return model , start_time
 """
 Step 4: Train the Model. 
@@ -162,7 +163,7 @@ Step 4: Train the Model.
 """
 def train_model(model, start_time, x_train, y_train):
     """Train the deep learning model"""
-    print("\nTraining deep learning model...")
+    
     # Train the model
     model.fit(x_train, y_train)
     # Calculate training time
@@ -193,7 +194,7 @@ def evaluate_model(model, start_time, x_test, y_test):
     # Create and save confusion matrix visualization
     cm = confusion_matrix(y_test, y_pred)
     plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[1, 2, 3, 4, 5], yticklabels=[1, 2, 3, 4, 5])
     plt.title('Confusion Matrix for Patient Priority Prediction')
     plt.ylabel('Actual Priority (ESI)')
     plt.xlabel('Predicted Priority (ESI)')
@@ -238,8 +239,13 @@ def predict_priority(model, sample_patients, preprocessor, priority_mapping):
 
 def main():
     # Initialize the model
+    print("\nWelcome to the TreatmentFlow Deep Learning module!")
+    print("\n -------------------------------------------------------------------------")
+    print("\nLoading data.")
     file_path = 'new_hospital_data_75.csv'
     DataFrame = load_data(file_path)
+    print("\n -------------------------------------------------------------------------")
+    print("\nPreprocessing data.")
     x_train, x_test, y_train, y_test, preprocessor = preprocess_data(DataFrame)
     # 5 levels of patient priority
     priority_mapping = {
@@ -249,13 +255,23 @@ def main():
             4: "Semi-Urgent",
             5: "Non-Urgent"
         }
+    # Build the model
+    print("\n -------------------------------------------------------------------------")
+    print("\nBuilding deep learning model.")
     model, start_time = build_model(x_train, x_test, y_train, y_test)
     # Train the model
+    print("\n -------------------------------------------------------------------------")
+    print("\nTraining deep learning model.")
     model = train_model(model, start_time, x_train, y_train)
 
     # Evaluate the model    
+    print("\n -------------------------------------------------------------------------")
+    print("\nEvaluating deep learning model.")
     model = evaluate_model(model, start_time, x_test, y_test)
 
+    # Predict patient priority for sample patients
+    print("\n -------------------------------------------------------------------------")
+    print("\nPredicting patient priority for sample patients.")
     sample_indices = np.random.choice(range(len(DataFrame)), size=5, replace=False)
     sample_patients = DataFrame.drop('esi', axis=1).iloc[sample_indices]
     results = predict_priority(model, sample_patients, preprocessor, priority_mapping)
