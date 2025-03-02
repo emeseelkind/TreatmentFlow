@@ -54,7 +54,7 @@ def load_data(file_path):
     print("\nData Overview:")
     print(DataFrame.head(3))
     print("\nData Types:")
-    print(DataFrame.dtypes.value_counts())
+    print(DataFrame.dtypes.value_counts())  
     print("\nMissing Values:")
     # print(DataFrame.isnull().sum(), "missing values per column") 
     print(DataFrame.isnull().sum().sum(), "total missing values in the dataset")
