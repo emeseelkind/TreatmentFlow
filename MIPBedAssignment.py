@@ -110,12 +110,6 @@ for p in range(P):
 
             else: # other constraints are irrelevant if this minute cannot be assigned
 
-                # sufficient tenure constraint and contiguity constraints
-
-                last_was_p = cpmod.NewBoolVar(f"bed_{bed}_last_was_{p}_at_{minute}")
-                cpmod.Add(timeline[minute - 1][bed] == p).OnlyEnforceIf(last_was_p)
-                cpmod.Add(timeline[minute - 1][bed] != p).OnlyEnforceIf(last_was_p.Not())
-
                 # make and enforce boolean variable for when current minute is patient p
                 this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_{minute}")
                 cpmod.Add(timeline[minute][bed] == p).OnlyEnforceIf(this_is_p)
@@ -123,10 +117,45 @@ for p in range(P):
 
                 # first appearance of p, used for sufficient tenure constraint and objective function
                 this_first_p = cpmod.NewBoolVar(f"bed_{bed}_this_first_{p}_at_{minute}")
-                cpmod.AddBoolAnd([last_was_p.Not(), this_is_p]).OnlyEnforceIf(this_first_p)
-                cpmod.AddBoolOr([last_was_p, this_is_p.Not()]).OnlyEnforceIf(this_first_p.Not())
 
+                if minute > 0:
+
+                    # make and enforce boolean variable for when previous minute is patient p
+                    last_was_p = cpmod.NewBoolVar(f"bed_{bed}_last_was_{p}_at_{minute}")
+                    cpmod.Add(timeline[minute - 1][bed] == p).OnlyEnforceIf(last_was_p)
+                    cpmod.Add(timeline[minute - 1][bed] != p).OnlyEnforceIf(last_was_p.Not())
+
+                    # enfore this_first_p when not minute == 0
+                    cpmod.AddBoolAnd([last_was_p.Not(), this_is_p]).OnlyEnforceIf(this_first_p)
+                    cpmod.AddBoolOr([last_was_p, this_is_p.Not()]).OnlyEnforceIf(this_first_p.Not())
+
+                else:
+
+                    # enforce this_first_p when minute == 0
+                    cpmod.Add(this_is_p == 1).OnlyEnforceIf(this_first_p)
+                    cpmod.Add(this_is_p == 0).OnlyEnforceIf(this_first_p.Not())
+
+                # support contiguity constraints
                 arrivals_list.append(this_first_p)
+
+                # if minute > 0: # edge case when arrival time is 0
+                
+                #     # make and enforce boolean variable for when previous minute is patient p
+                #     last_was_p = cpmod.NewBoolVar(f"bed_{bed}_last_was_{p}_at_{minute}")
+                #     cpmod.Add(timeline[minute - 1][bed] == p).OnlyEnforceIf(last_was_p)
+                #     cpmod.Add(timeline[minute - 1][bed] != p).OnlyEnforceIf(last_was_p.Not())
+
+                #     # first appearance of p, used for sufficient tenure constraint and objective function
+                #     this_first_p = cpmod.NewBoolVar(f"bed_{bed}_this_first_{p}_at_{minute}")
+                #     cpmod.AddBoolAnd([last_was_p.Not(), this_is_p]).OnlyEnforceIf(this_first_p)
+                #     cpmod.AddBoolOr([last_was_p, this_is_p.Not()]).OnlyEnforceIf(this_first_p.Not())
+
+                #     # support contiguity constraints
+                #     arrivals_list.append(this_first_p)
+                # else:
+
+                #     # if minute == 0, and thus arrival time == 0, this_is_p means that first appearance of p is at 0
+                #     arrivals_list.append(this_is_p)
 
 
                 # tenure constraints
