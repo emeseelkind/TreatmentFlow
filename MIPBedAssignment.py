@@ -13,7 +13,7 @@ from ortools.sat.python import cp_model
 
 # running hospital simulation without constraint satisfacation
 B = 5  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 5  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+P = 34  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
 
 hospital = HospitalRecords(B)
 hospital.gen_patient_list(P)
@@ -78,18 +78,21 @@ Patient tenure
     -   (final minute of day - first minute of patient assignment) < service time
 """
 
-# patient-based constraints
-print("Adding constraints")
-
 # resources for objective function
-assignments = []
-wait_times = []
+assignments = []    # track which patients were assigned
+wait_times = []     # track wait times (weighted) of each patient
+penalties = []        # penalize not assigning a patient
 
+# patient-based constraints
 for p in range(P):
+
+    # constraint building progress update
+    print(f"Adding constraints for patient {p+1}/{P}", end ="\r")
 
     # building objective function
     assignments.append(0)
     wait_times.append(0)
+    penalties.append(0)
 
     # print(f"Contiguity of patient {p}")
     priority = hospital.patient_list[p].priority
@@ -97,7 +100,6 @@ for p in range(P):
     service = hospital.patient_list[p].service_time
 
     arrivals_list = []
-    arrivals = cpmod.NewIntVar(0, 1439, f"arrivals_{p}") # could potentially be a discharge at every minute
 
     for bed in range(B):
         for minute in range(1440):
@@ -153,15 +155,24 @@ for p in range(P):
 
                 
                 # calculate the weighted wait time (for objective function)
-                wait_time = this_first_p * priority * (minute - arrival) # will be zero if not first_time_next
-                wait_times[p] = wait_times[p] + wait_time
+                wait_times[p] = wait_times[p] + this_first_p * priority * (minute - arrival) # will be zero if not this_first_p
 
     # enforcement of contiguity of patient p
+    arrivals = cpmod.NewIntVar(0, 1439, f"arrivals_{p}") # could potentially be an arrival at every minute
+    
     # enforce arrivals variable: can only have one arrival per patient
     cpmod.Add(arrivals == sum(arrivals_list))
     cpmod.Add(arrivals <= 1)
 
+
     # help build objective function
+
+    # add and enforce penalty for when patient goes unassigned
+    penalty = cpmod.NewBoolVar(f"penalty_{p}")
+    cpmod.Add(arrivals == 0).OnlyEnforceIf(penalty)
+    cpmod.Add(arrivals == 1).OnlyEnforceIf(penalty.Not())
+
+    penalties[p] = penalties[p] + penalty * priority * 1440 # will be zero if not penalty
     assignments[p] = arrivals
 
 
@@ -179,7 +190,7 @@ Practical implementation:
 
 print("Adding objective function")
 
-objective = sum(assignments) - sum(wait_times)
+objective = sum(assignments) - sum(wait_times) - sum(penalties)
 cpmod.maximize(objective)
 
 # ---------------------------------
@@ -189,7 +200,7 @@ print("Model complete. Solving now")
 
 solver = cp_model.CpSolver()
 solver.parameters.log_search_progress = True
-solver.parameters.max_time_in_seconds = 15
+solver.parameters.max_time_in_seconds = 60
 status = solver.solve(cpmod)
 
 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
@@ -211,9 +222,16 @@ elif status == cp_model.FEASIBLE:
 
 print(f"Objective value: {solver.ObjectiveValue()}")
 
-message = ""
-for patient in hospital.patient_list:
-    message += f"{patient.id}:{patient.arrival_time}:{patient.service_time} {patient.priority},   "
+# message = ""
+# for patient in hospital.patient_list:
+#     message += f"{patient.id}:{patient.arrival_time}:{patient.service_time} {patient.priority},   "
 
-print("Patient:arrival:service and priority")
-print(message)
+# print("Patient:arrival:service and priority")
+# print(message)
+
+for p in range(P):
+    if solver.Value(wait_times[p]):
+        # print(f"Patient {p} wait time: {solver.Value(wait_times[p])}.   Optimality: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
+        print(f"Patient {p} arrival: {hospital.patient_list[p].arrival_time}. Wait time: {solver.Value(wait_times[p]) / hospital.patient_list[p].priority}")
+    if solver.Value(penalties[p]):
+        print(f"Patient {p} not assigned. Penalty: {solver.Value(penalties[p])}")
