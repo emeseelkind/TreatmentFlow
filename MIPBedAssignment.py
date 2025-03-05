@@ -9,11 +9,12 @@ CISC 352: Artificial Intelligence
 """
 
 from HospitalClasses import HospitalRecords
+from HospitalClasses import print_time
 from ortools.sat.python import cp_model
 
 # running hospital simulation without constraint satisfacation
 B = 5  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 34  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+P = 30  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
 
 hospital = HospitalRecords(B)
 hospital.gen_patient_list(P)
@@ -31,8 +32,6 @@ Proposed constraints:
     - cannot assign a lower priority patient when a higher priority patient is waiting
     - must assign (or queue) every patient in the list of patients
 """
-
-print("\n\n--- SOLVING SECTION ---")
 
 # create solver
 cpmod = cp_model.CpModel()
@@ -79,7 +78,6 @@ Patient tenure
 """
 
 # resources for objective function
-assignments = []    # track which patients were assigned
 wait_times = []     # track wait times (weighted) of each patient
 penalties = []        # penalize not assigning a patient
 
@@ -87,14 +85,17 @@ penalties = []        # penalize not assigning a patient
 for p in range(P):
 
     # constraint building progress update
-    print(f"Adding constraints for patient {p+1}/{P}", end ="\r")
+    if p < P - 1:
+        print(f"Adding constraints for patient {p+1}/{P}", end ="\r")
+    else:
+        print(f"Adding constraints for patient {p+1}/{P}")
+
 
     # building objective function
-    assignments.append(0)
     wait_times.append(0)
     penalties.append(0)
 
-    # print(f"Contiguity of patient {p}")
+    # tracking patient information for constraint and objective building
     priority = hospital.patient_list[p].priority
     arrival = hospital.patient_list[p].arrival_time
     service = hospital.patient_list[p].service_time
@@ -173,7 +174,6 @@ for p in range(P):
     cpmod.Add(arrivals == 1).OnlyEnforceIf(penalty.Not())
 
     penalties[p] = penalties[p] + penalty * priority * 1440 # will be zero if not penalty
-    assignments[p] = arrivals
 
 
 # objective function
@@ -190,8 +190,8 @@ Practical implementation:
 
 print("Adding objective function")
 
-objective = sum(assignments) - sum(wait_times) - sum(penalties)
-cpmod.maximize(objective)
+objective = sum(wait_times) + sum(penalties)
+cpmod.minimize(objective)
 
 # ---------------------------------
 
@@ -200,12 +200,12 @@ print("Model complete. Solving now")
 
 solver = cp_model.CpSolver()
 solver.parameters.log_search_progress = True
-solver.parameters.max_time_in_seconds = 60
+solver.parameters.max_time_in_seconds = 30
 status = solver.solve(cpmod)
 
 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
     for minute in range(1440):
-        message = f"{minute}: "
+        message = f"{print_time(minute)} - "
         for bed in range(B):
             if solver.value(timeline[minute][bed]) >= 0:
                 message += f"[{solver.value(timeline[minute][bed])}]"
@@ -232,6 +232,6 @@ print(f"Objective value: {solver.ObjectiveValue()}")
 for p in range(P):
     if solver.Value(wait_times[p]):
         # print(f"Patient {p} wait time: {solver.Value(wait_times[p])}.   Optimality: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
-        print(f"Patient {p} arrival: {hospital.patient_list[p].arrival_time}. Wait time: {solver.Value(wait_times[p]) / hospital.patient_list[p].priority}")
+        print(f"Patient {p} arrival: {print_time(hospital.patient_list[p].arrival_time)}. Wait time: {print_time(int(solver.Value(wait_times[p]) / hospital.patient_list[p].priority))}")
     if solver.Value(penalties[p]):
-        print(f"Patient {p} not assigned. Penalty: {solver.Value(penalties[p])}")
+        print(f"Patient {p} not assigned. Arrival: {print_time(hospital.patient_list[p].arrival_time)}. Penalty: {solver.Value(penalties[p])}")
