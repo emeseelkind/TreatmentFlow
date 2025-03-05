@@ -54,8 +54,6 @@ for minute in range(1440):
         timeline[minute][bed] = cpmod.NewIntVar(lb=-1, ub=P-1, name=f"bed_{bed}_at_{minute}") # -1 means empty bed, 0 to P-1 is a patient id
         pat_vars.append(timeline[minute][bed])
 
-# print(timeline)
-
 
 # bed assignment constraints
 """
@@ -64,7 +62,7 @@ Patient arrival time consideration
 
 Patient to bed exclusivity
 -   a patient can only be assigned a bed when there is no other patient in it
--   a patient can only be in one bed at a time
+-   a patient can only be in one bed at a time (implicity met by discharges constraint)
 
 Patient contiguousness
 -   a patent being assigned to a bed will be assigned for a contiguous period
@@ -83,82 +81,62 @@ Patient tenure
 # patient-based constraints
 print("Adding constraints")
 
-# contiguity constraint
-print("Building contiguity")
-
 for p in range(P):
-    print(f"Contiguity of patient {p}")
+    # print(f"Contiguity of patient {p}")
+    arrival = hospital.patient_list[p].arrival_time
+    service = hospital.patient_list[p].service_time
 
     discharges_list = []
     discharges = cpmod.NewIntVar(0, 1439, f"discharges_{p}") # could potentially be a discharge at every minute
 
     for bed in range(B):
-        for minute in range(1439):
+        for minute in range(1440):
 
-            # make and enforce boolean variable for when current minute is patient p
-            this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_{minute}")
-            cpmod.Add(timeline[minute][bed] == p).OnlyEnforceIf(this_is_p)
-            cpmod.Add(timeline[minute][bed] != p).OnlyEnforceIf(this_is_p.Not())
-
-            # make and enforce boolean variable for when next minute is patient p
-            next_is_p = cpmod.NewBoolVar(f"bed_{bed}_next_is_{p}_at_{minute}")
-            cpmod.Add(timeline[minute + 1][bed] == p).OnlyEnforceIf(next_is_p)
-            cpmod.Add(timeline[minute + 1][bed] != p).OnlyEnforceIf(next_is_p.Not())
-            
-            # get discharge variable and enforce: current minute is p and next is not
-            discharge = cpmod.NewBoolVar(f"bed_{bed}_discharge_{p}_at_{minute}")
-            cpmod.AddBoolAnd([this_is_p, next_is_p.Not()]).OnlyEnforceIf(discharge)
-            cpmod.AddBoolOr([this_is_p.Not(), next_is_p]).OnlyEnforceIf(discharge.Not())
-
-            discharges_list.append(discharge)
-
-        # consider edge case: the patient being in the bed at the final minute should count as a discharge
-        this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_1439")
-        cpmod.Add(timeline[1439][bed] == p).OnlyEnforceIf(this_is_p)
-        cpmod.Add(timeline[1439][bed] != p).OnlyEnforceIf(this_is_p.Not())
-            
-        discharges_list.append(this_is_p)
-
-    # enforce discharges variable: can only have one discharge per patient
-    cpmod.Add(discharges == sum(discharges_list))
-    cpmod.Add(discharges <= 1)
-
-            
-print("Building other constraints")
-
-for minute in range(1440):
-
-    # ensure a patient can only be assigned to a single bed during a minute
-    # add forbidden assignment between each possible pair of beds this minute, for each possible patient value
-    for current in range(len(timeline[minute])):
-        for comp in range(current + 1, len(timeline[minute])):
-            cpmod.AddForbiddenAssignments([timeline[minute][current], timeline[minute][comp]], [(p, p) for p in range(P)])
-
-    for bed in range(B):
-        for p in range(P):
-            arrival = hospital.patient_list[p].arrival_time
-            service = hospital.patient_list[p].service_time
-
-            # patient cannot be served before their arrival
+            # arrival constraint
             if minute < arrival:
-                # timeline[minute][bed] != p
+
+                # the patient cannot be assigned if they have not yet arrived
                 cpmod.AddForbiddenAssignments([timeline[minute][bed]], [[p]])
 
             else: # other constraints are irrelevant if this minute cannot be assigned
 
-                # patient cannot be in bed longer than their service time
+                # tenure constraint
                 if arrival + service <= minute:
-                    # timeline[minute][bed] != timeline[minute - service][bed]
+
+                    # the patient cannot occupy a bed for longer than their service time
                     cpmod.AddForbiddenAssignments([timeline[minute][bed], timeline[minute - service][bed]], [(p, p)])
 
-                # patient cannot be discharged early
-                """
-                if ([minute - 1] != patient) and ([minute] == patient):
-                    if minute + service < 1440:
-                        [minute + service] == patient
-                    else:
-                        [final minute] == patient
-                """
+
+                # contiguity constraints
+
+                # make and enforce boolean variable for when current minute is patient p
+                this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_{minute}")
+                cpmod.Add(timeline[minute][bed] == p).OnlyEnforceIf(this_is_p)
+                cpmod.Add(timeline[minute][bed] != p).OnlyEnforceIf(this_is_p.Not())
+
+                if minute < 1439: # edge case for next_is_p
+
+                    # make and enforce boolean variable for when next minute is patient p
+                    next_is_p = cpmod.NewBoolVar(f"bed_{bed}_next_is_{p}_at_{minute}")
+                    cpmod.Add(timeline[minute + 1][bed] == p).OnlyEnforceIf(next_is_p)
+                    cpmod.Add(timeline[minute + 1][bed] != p).OnlyEnforceIf(next_is_p.Not())
+                    
+                    # get discharge variable and enforce: current minute is p and next is not
+                    discharge = cpmod.NewBoolVar(f"bed_{bed}_discharge_{p}_at_{minute}")
+                    cpmod.AddBoolAnd([this_is_p, next_is_p.Not()]).OnlyEnforceIf(discharge)
+                    cpmod.AddBoolOr([this_is_p.Not(), next_is_p]).OnlyEnforceIf(discharge.Not())
+
+                    discharges_list.append(discharge)
+                
+                else:
+
+                    # the patient being in the bed at the final minute should count as a discharge
+                    discharges_list.append(this_is_p)
+
+    # enforcement of contiguity
+    # enforce discharges variable: can only have one discharge per patient
+    cpmod.Add(discharges == sum(discharges_list))
+    cpmod.Add(discharges <= 1)
 
 
 # objective function
