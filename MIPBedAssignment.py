@@ -100,14 +100,14 @@ for p in range(P):
 
             else: # other constraints are irrelevant if this minute cannot be assigned
 
-                # tenure constraint
+                # maximum tenure constraint
                 if arrival + service <= minute:
 
                     # the patient cannot occupy a bed for longer than their service time
                     cpmod.AddForbiddenAssignments([timeline[minute][bed], timeline[minute - service][bed]], [(p, p)])
 
 
-                # contiguity constraints
+                # sufficient tenure constraint and contiguity constraints
 
                 # make and enforce boolean variable for when current minute is patient p
                 this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_{minute}")
@@ -127,7 +127,18 @@ for p in range(P):
                     cpmod.AddBoolOr([this_is_p.Not(), next_is_p]).OnlyEnforceIf(discharge.Not())
 
                     discharges_list.append(discharge)
-                
+
+                    # sufficient tensure constraint
+                    first_time_next = cpmod.NewBoolVar(f"bed_{bed}_first_time_next_{p}_at_{minute}")
+                    cpmod.AddBoolAnd([this_is_p.Not(), next_is_p]).OnlyEnforceIf(first_time_next)
+                    cpmod.AddBoolOr([this_is_p, next_is_p.Not()]).OnlyEnforceIf(first_time_next.Not())
+
+                    # set final minute of service to same patient
+                    if minute + service < 1440: # MAKE SURE EDGE CASES WORK
+                        cpmod.Add(timeline[minute + service][bed] == p).OnlyEnforceIf(first_time_next)
+                    else:
+                        cpmod.Add(timeline[1439][bed] == p).OnlyEnforceIf(first_time_next)
+
                 else:
 
                     # the patient being in the bed at the final minute should count as a discharge
@@ -166,7 +177,7 @@ sum_of_patients = 0
 for var in pat_vars:
     sum_of_patients += var
 
-cpmod.maximize(sum_of_patients)
+cpmod.maximize(weighted_wait_times)
 
 # ---------------------------------
 
