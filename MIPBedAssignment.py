@@ -62,7 +62,7 @@ Patient arrival time consideration
 
 Patient to bed exclusivity
 -   a patient can only be assigned a bed when there is no other patient in it
--   a patient can only be in one bed at a time (implicity met by discharges constraint)
+-   a patient can only be in one bed at a time (implicity met by contiguity/discharges constraint)
 
 Patient contiguousness
 -   a patent being assigned to a bed will be assigned for a contiguous period
@@ -81,8 +81,23 @@ Patient tenure
 # patient-based constraints
 print("Adding constraints")
 
+# TESTING FIRST TIME NEXT VARS
+first_time_next_vars = {}
+this_is_p_vars = {}
+
+
+# resources for objective function
+assignments = []
+wait_times = []
+
 for p in range(P):
+
+    # building objective function
+    assignments.append(0)
+    wait_times.append(0)
+
     # print(f"Contiguity of patient {p}")
+    priority = hospital.patient_list[p].priority
     arrival = hospital.patient_list[p].arrival_time
     service = hospital.patient_list[p].service_time
 
@@ -109,12 +124,25 @@ for p in range(P):
 
                 # sufficient tenure constraint and contiguity constraints
 
+                last_was_p = cpmod.NewBoolVar(f"bed_{bed}_last_was_{p}_at_{minute}")
+                cpmod.Add(timeline[minute - 1][bed] == p).OnlyEnforceIf(last_was_p)
+                cpmod.Add(timeline[minute - 1][bed] != p).OnlyEnforceIf(last_was_p.Not())
+
                 # make and enforce boolean variable for when current minute is patient p
                 this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_{minute}")
                 cpmod.Add(timeline[minute][bed] == p).OnlyEnforceIf(this_is_p)
                 cpmod.Add(timeline[minute][bed] != p).OnlyEnforceIf(this_is_p.Not())
 
-                if minute < 1439: # edge case for next_is_p
+                # first appearance of p, used for sufficient tenure constraint and objective function
+                this_first_p = cpmod.NewBoolVar(f"bed_{bed}_this_first_{p}_at_{minute}")
+                cpmod.AddBoolAnd([last_was_p.Not(), this_is_p]).OnlyEnforceIf(this_first_p)
+                cpmod.AddBoolOr([last_was_p, this_is_p.Not()]).OnlyEnforceIf(this_first_p.Not())
+
+                # TESTING THIS IS P
+                this_is_p_vars[f"bed_{bed}_this_is_{p}_at_{minute}"] = this_is_p
+
+
+                if minute < 1439: # edge case for next_is_p, 
 
                     # make and enforce boolean variable for when next minute is patient p
                     next_is_p = cpmod.NewBoolVar(f"bed_{bed}_next_is_{p}_at_{minute}")
@@ -128,26 +156,32 @@ for p in range(P):
 
                     discharges_list.append(discharge)
 
-                    # sufficient tensure constraint
-                    first_time_next = cpmod.NewBoolVar(f"bed_{bed}_first_time_next_{p}_at_{minute}")
-                    cpmod.AddBoolAnd([this_is_p.Not(), next_is_p]).OnlyEnforceIf(first_time_next)
-                    cpmod.AddBoolOr([this_is_p, next_is_p.Not()]).OnlyEnforceIf(first_time_next.Not())
+                    # TESTING VARS
+                    # first_time_next_vars[f"bed_{bed}_first_time_next_{p}_at_{minute}"] = first_time_next
 
+                    # sufficient tensure constraint
                     # set final minute of service to same patient
-                    if minute + service < 1440: # MAKE SURE EDGE CASES WORK
-                        cpmod.Add(timeline[minute + service][bed] == p).OnlyEnforceIf(first_time_next)
+                    if minute + service < 1440: # NOTE: verify edge cases
+                        cpmod.Add(timeline[minute + service - 1][bed] == p).OnlyEnforceIf(this_first_p)
                     else:
-                        cpmod.Add(timeline[1439][bed] == p).OnlyEnforceIf(first_time_next)
+                        cpmod.Add(timeline[1439][bed] == p).OnlyEnforceIf(this_first_p)
 
                 else:
 
                     # the patient being in the bed at the final minute should count as a discharge
                     discharges_list.append(this_is_p)
 
+                # calculate the weighted wait time (for objective function)
+                wait_time = this_first_p * priority * (minute - arrival) # will be zero if not first_time_next
+                wait_times[p] = wait_times[p] + wait_time
+
     # enforcement of contiguity
     # enforce discharges variable: can only have one discharge per patient
     cpmod.Add(discharges == sum(discharges_list))
     cpmod.Add(discharges <= 1)
+
+    # help build objective function
+    assignments[p] = discharges
 
 
 # objective function
@@ -155,29 +189,40 @@ for p in range(P):
 Objective function
 -   minimize the wait times of patients, with higher-priority patients scaled such 
     that their wait times are more punishing if long (multiply wait times by patient cost)
+
+Practical implementation:
+-   for the first appearance of a patient, multiply the difference between this minute
+    and their arrival time by their priority level
+-   get the sum of these differences and minimize
 """
 
 print("Adding objective function")
 
-weighted_wait_times = 0
-for minute in range(1440):
-    for bed in range(B):
-        for p in range(P):
-            arrival = hospital.patient_list[p].arrival_time
-            priority = hospital.patient_list[p].priority
+objective = sum(assignments) - sum(wait_times)
+cpmod.maximize(objective)
+# cpmod.maximize(sum(wait_times))
+# cpmod.maximize(0)
 
-            # add wait time * priority to objective expression
-            """
-            if ([minute - 1] != patient) and ([minute] == patient):
-                weighted_wait_times = weighted_wait_times + (minute - arrival) * priority
-            """
 
-# testing objective function
-sum_of_patients = 0
-for var in pat_vars:
-    sum_of_patients += var
+# weighted_wait_times = 0
+# for minute in range(1440):
+#     for bed in range(B):
+#         for p in range(P):
+#             arrival = hospital.patient_list[p].arrival_time
+#             priority = hospital.patient_list[p].priority
 
-cpmod.maximize(weighted_wait_times)
+#             # add wait time * priority to objective expression
+#             """
+#             if ([minute - 1] != patient) and ([minute] == patient):
+#                 weighted_wait_times = weighted_wait_times + (minute - arrival) * priority
+#             """
+
+# # testing objective function
+# sum_of_patients = 0
+# for var in pat_vars:
+#     sum_of_patients += var
+
+# # cpmod.maximize(weighted_wait_times)
 
 # ---------------------------------
 
@@ -208,9 +253,48 @@ if status == cp_model.OPTIMAL:
 elif status == cp_model.FEASIBLE:
     print(f"\nThe above solution is feasible, but was not proven optimal.")
 
+print(f"Objective value: {solver.ObjectiveValue()}")
+
 message = ""
 for patient in hospital.patient_list:
-    message += f"{patient.id}:{patient.arrival_time}:{patient.service_time}, "
+    message += f"{patient.id}:{patient.arrival_time}:{patient.service_time} {patient.priority},   "
 
-print("Patient : arrival : service")
+print("Patient:arrival:service and priority")
 print(message)
+
+
+# # print(first_time_next_vars)
+
+# for var in this_is_p_vars:
+#     # print(var)
+#     this_val = this_is_p_vars[var]
+#     if solver.Value(this_val):
+#         # print(f"{var} = {solver.Value(this_val)}")
+#         foo = 0
+
+
+# for p in range(P):
+#     for bed in range(B):
+#         for minute in range(1440):
+#             first_var_name = f"bed_{bed}_first_time_next_{p}_at_{minute}"
+#             this_var_name = f"bed_{bed}_this_is_{p}_at_{minute}" # should be the next minute
+#             if first_var_name in first_time_next_vars:
+#                 foo = 0
+#                 # print(f"{var_name} in first_time_next_vars. Value: {solver.Value(first_time_next_vars[var_name])}")
+                
+#                 if solver.Value(this_is_p_vars[this_var_name]):
+#                     print(f"Patient {p} at {minute + 1} in bed {bed}. First_time_next at {minute - 1}: {solver.Value(first_time_next_vars[first_var_name])}")
+                
+#                 if solver.Value(first_time_next_vars[first_var_name]):
+#                     print(f"Patient {p} first time at {minute + 1} in bed {bed}. Wait time: {solver.Value(wait_times[p]) / hospital.patient_list[p].priority}")
+
+# # print(sum(wait_times))
+# # for wait_time in wait_times:
+# #     if solver.Value(wait_time):
+# #         print(solver.Value(wait_time))
+
+for p in range(P):
+    if solver.Value(assignments[p]):
+        print(f"Objective for {p}: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
+
+# print(solver.Value(sum(wait_times)))
