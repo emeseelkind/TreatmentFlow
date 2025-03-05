@@ -39,8 +39,8 @@ Summary of approach:
 """
 
 # running hospital simulation without constraint satisfacation
-B = 10  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 10  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+B = 20  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
+P = 150  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
 
 hospital = HospitalRecords(B)
 hospital.gen_patient_list(P)

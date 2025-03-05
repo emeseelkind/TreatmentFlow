@@ -9,9 +9,6 @@ CISC 352: Artificial Intelligence
 """
 
 from HospitalClasses import HospitalRecords
-
-from ortools.init.python import init
-from ortools.linear_solver import pywraplp
 from ortools.sat.python import cp_model
 
 # running hospital simulation without constraint satisfacation
@@ -83,42 +80,48 @@ Patient tenure
     -   (final minute of day - first minute of patient assignment) < service time
 """
 
+# patient-based constraints
 print("Adding constraints")
 
-# patient-based constraints
-
+# contiguity constraint
 print("Building contiguity")
 
-# contiguity constraint
-for bed in range(B):
-    print(f"Contiguity of bed {bed}")
-    for p in range(P):
+for p in range(P):
+    print(f"Contiguity of patient {p}")
 
-        discharges_list = []
-        discharges = cpmod.NewIntVar(0, 1439, f"discharges_{p}") # could potentially be a discharge at every minute
+    discharges_list = []
+    discharges = cpmod.NewIntVar(0, 1439, f"discharges_{p}") # could potentially be a discharge at every minute
 
+    for bed in range(B):
         for minute in range(1439):
 
             # make and enforce boolean variable for when current minute is patient p
-            this_is_p = cpmod.NewBoolVar(f"this_is_{p}_at_{minute}")
+            this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_{minute}")
             cpmod.Add(timeline[minute][bed] == p).OnlyEnforceIf(this_is_p)
             cpmod.Add(timeline[minute][bed] != p).OnlyEnforceIf(this_is_p.Not())
 
             # make and enforce boolean variable for when next minute is patient p
-            next_is_p = cpmod.NewBoolVar(f"next_is_{p}_at_{minute}")
+            next_is_p = cpmod.NewBoolVar(f"bed_{bed}_next_is_{p}_at_{minute}")
             cpmod.Add(timeline[minute + 1][bed] == p).OnlyEnforceIf(next_is_p)
             cpmod.Add(timeline[minute + 1][bed] != p).OnlyEnforceIf(next_is_p.Not())
             
             # get discharge variable and enforce: current minute is p and next is not
-            discharge = cpmod.NewBoolVar(f"discharge_{p}_at_{bed}")
+            discharge = cpmod.NewBoolVar(f"bed_{bed}_discharge_{p}_at_{minute}")
             cpmod.AddBoolAnd([this_is_p, next_is_p.Not()]).OnlyEnforceIf(discharge)
             cpmod.AddBoolOr([this_is_p.Not(), next_is_p]).OnlyEnforceIf(discharge.Not())
 
             discharges_list.append(discharge)
+
+        # consider edge case: the patient being in the bed at the final minute should count as a discharge
+        this_is_p = cpmod.NewBoolVar(f"bed_{bed}_this_is_{p}_at_1439")
+        cpmod.Add(timeline[1439][bed] == p).OnlyEnforceIf(this_is_p)
+        cpmod.Add(timeline[1439][bed] != p).OnlyEnforceIf(this_is_p.Not())
             
-        # enforce discharges variable: can only have one discharge per patient
-        cpmod.Add(discharges == sum(discharges_list))
-        cpmod.Add(discharges <= 1)
+        discharges_list.append(this_is_p)
+
+    # enforce discharges variable: can only have one discharge per patient
+    cpmod.Add(discharges == sum(discharges_list))
+    cpmod.Add(discharges <= 1)
 
             
 print("Building other constraints")
@@ -144,10 +147,9 @@ for minute in range(1440):
             else: # other constraints are irrelevant if this minute cannot be assigned
 
                 # patient cannot be in bed longer than their service time
-                if minute - service >= 0:
+                if arrival + service <= minute:
                     # timeline[minute][bed] != timeline[minute - service][bed]
-                    # cpmod.AddForbiddenAssignments([timeline[minute][bed], timeline[minute - service][bed]], [(p, p)])
-                    foo = 0
+                    cpmod.AddForbiddenAssignments([timeline[minute][bed], timeline[minute - service][bed]], [(p, p)])
 
                 # patient cannot be discharged early
                 """
@@ -195,6 +197,7 @@ print("Model complete. Solving now")
 
 solver = cp_model.CpSolver()
 solver.parameters.log_search_progress = True
+solver.parameters.max_time_in_seconds = 15
 status = solver.solve(cpmod)
 
 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
@@ -211,8 +214,14 @@ if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
 else:
     print("No solution found.")
 
+if status == cp_model.OPTIMAL:
+    print(f"\nThe above solution is optimal.")
+elif status == cp_model.FEASIBLE:
+    print(f"\nThe above solution is feasible, but was not proven optimal.")
+
 message = ""
 for patient in hospital.patient_list:
-    message += f"{patient.id}:{patient.arrival_time}, "
+    message += f"{patient.id}:{patient.arrival_time}:{patient.service_time}, "
 
+print("Patient : arrival : service")
 print(message)
