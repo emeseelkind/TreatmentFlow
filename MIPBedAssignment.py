@@ -138,25 +138,6 @@ for p in range(P):
                 # support contiguity constraints
                 arrivals_list.append(this_first_p)
 
-                # if minute > 0: # edge case when arrival time is 0
-                
-                #     # make and enforce boolean variable for when previous minute is patient p
-                #     last_was_p = cpmod.NewBoolVar(f"bed_{bed}_last_was_{p}_at_{minute}")
-                #     cpmod.Add(timeline[minute - 1][bed] == p).OnlyEnforceIf(last_was_p)
-                #     cpmod.Add(timeline[minute - 1][bed] != p).OnlyEnforceIf(last_was_p.Not())
-
-                #     # first appearance of p, used for sufficient tenure constraint and objective function
-                #     this_first_p = cpmod.NewBoolVar(f"bed_{bed}_this_first_{p}_at_{minute}")
-                #     cpmod.AddBoolAnd([last_was_p.Not(), this_is_p]).OnlyEnforceIf(this_first_p)
-                #     cpmod.AddBoolOr([last_was_p, this_is_p.Not()]).OnlyEnforceIf(this_first_p.Not())
-
-                #     # support contiguity constraints
-                #     arrivals_list.append(this_first_p)
-                # else:
-
-                #     # if minute == 0, and thus arrival time == 0, this_is_p means that first appearance of p is at 0
-                #     arrivals_list.append(this_is_p)
-
 
                 # tenure constraints
                 if arrival + service <= minute:
@@ -175,7 +156,7 @@ for p in range(P):
                 wait_time = this_first_p * priority * (minute - arrival) # will be zero if not first_time_next
                 wait_times[p] = wait_times[p] + wait_time
 
-    # enforcement of contiguity
+    # enforcement of contiguity of patient p
     # enforce arrivals variable: can only have one arrival per patient
     cpmod.Add(arrivals == sum(arrivals_list))
     cpmod.Add(arrivals <= 1)
