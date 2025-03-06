@@ -24,3 +24,10 @@ pip install pandas
 python -m pip install -U pip
 python -m pip install -U matplotlib
 ```
+```
+pip install seaborn
+```
+```
+python -m pip install scikit-learn
+
+```
