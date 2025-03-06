@@ -249,10 +249,10 @@ def main():
     x_train, x_test, y_train, y_test, preprocessor = preprocess_data(DataFrame)
     # 5 levels of patient priority
     priority_mapping = {
-            1: "Immediate (Life Threatening)",
-            2: "Emergency (Very Urgent)",
+            1: "Immediate (Resuscitation)",
+            2: "Emergency",
             3: "Urgent",
-            4: "Semi-Urgent",
+            4: "Less Urgent",
             5: "Non-Urgent"
         }
     # Build the model
