@@ -10,7 +10,7 @@ TreatmentFlow was originally created by Adam Neto and Emese Elkind during the mo
 
 # Installation Instructions
 
-Welcome to our course project! To get our code up and running, you must install pandas pyreadr and Google's OR Tools.
+Welcome to our course project! To get our code up and running, you must install pandas, pyreadr, Scikit Learn, and Google's OR Tools.
 ```
 python -m pip install ortools
 ```
