@@ -139,11 +139,12 @@ class HospitalRecords:
             new_patient.gen_rand_patient()
 
             plist.append(new_patient)
-            self.insert_unserved(new_patient)
+            # self.insert_unserved(new_patient)
 
             self.max_patient_id += 1
 
         self.patient_list = plist
+        self.unserved = self.mergesort_patient_list(plist)
 
     def add_patient(self, patient):
         if not type(patient) == Patient:
@@ -201,6 +202,87 @@ class HospitalRecords:
 
                 self.beds_available += 1
                 return
+            
+    def merge_patient_list(self, left, right):
+        """
+        Input:
+        left: the left list of Patient
+        right: the right list of Patient
+
+        Output:
+        merged version of left and right patient lists
+
+        Need to merge the lists by priority (descending), arrival time (ascending)
+        """
+
+        merged = []
+
+        i = 0
+        j = 0
+        while i < len(left) and j < len(right):
+            l_pri = left[i].priority
+            l_ari = left[i].arrival_time
+
+            r_pri = right[j].priority
+            r_ari = right[j].arrival_time
+
+            # sort by priority
+            if l_pri < r_pri:
+                merged.append(right[j])
+                j += 1
+            elif l_pri > r_pri:
+                merged.append(left[i])
+                i += 1
+            else:
+                # if priorities are equal, sort by arrival time
+                if l_ari <= r_ari:
+                    merged.append(left[i])
+                    i += 1
+                else:
+                    merged.append(right[j])
+                    j += 1
+
+        # extend end of merged list with rest of left or right
+        while i < len(left):
+            merged.append(left[i])
+            i += 1
+        while j < len(right):
+            merged.append(right[j])
+            j += 1
+
+        return merged
+
+    def mergesort_patient_list(self, patient_list):
+        """
+        Input:
+        patients_list: list of Patient
+
+        Output:
+        sorted version of patient list by priority (descending), arrival time (ascending)
+        """
+
+        # base case
+        if len(patient_list) <= 1:
+            return patient_list
+        elif len(patient_list) == 2:
+            # if priority of 0 < priority of 1, switch
+            if patient_list[0].priority < patient_list[1].priority:
+                patient_list[0], patient_list[1] = patient_list[1], patient_list[0]
+            
+            # if priority of 0 == priority of 1, look at arrival times
+            elif patient_list[0].priority == patient_list[1].priority:
+                # if arrival time of 0 > arrival time of 1, switch
+                if patient_list[0].arrival_time > patient_list[1].arrival_time:
+                    patient_list[0], patient_list[1] = patient_list[1], patient_list[0]
+            
+            # otherwise, sublist is already sorted
+            return patient_list
+        else:
+            midpoint = len(patient_list) // 2
+            left_sorted = self.mergesort_patient_list(patient_list[0 : midpoint])
+            right_sorted = self.mergesort_patient_list(patient_list[midpoint + 1 :])
+            return self.merge_patient_list(left_sorted, right_sorted)
+
             
 # hospital simulator class (for testing / showcase)
 class Scheduler:
@@ -281,3 +363,20 @@ class Scheduler:
         print(f"\n--HOSPITAL AT {print_time(time)}--")
         for this_row in bed_print:
             print(this_row)
+
+
+hosp = HospitalRecords(10)
+hosp.gen_patient_list(20)
+
+print("\nPATIENTS:")
+for patient in hosp.patient_list:
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+
+sorted = hosp.mergesort_patient_list(hosp.patient_list)
+print("\nSORTED:")
+for patient in sorted:
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+
+print("\nUNSERVED:")
+for patient in hosp.unserved:
+    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")

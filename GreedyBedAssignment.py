@@ -10,9 +10,7 @@ CISC 352: Artificial Intelligence
 
 from HospitalClasses import HospitalRecords
 from HospitalClasses import Scheduler
-
-from ortools.init.python import init
-from ortools.linear_solver import pywraplp
+from HospitalClasses import print_time
 
 # This file is an experimental application of our bed assignment system using the greedy paradigm
 
@@ -38,9 +36,142 @@ Summary of approach:
                         POTENTIAL ISSUE: how to avoid low-priority starvation
 """
 
+# hospital simulator class (for testing / showcase)
+class GreedyScheduler:
+    def __init__(self, Hospital) -> None:
+        if not type(Hospital) == HospitalRecords:
+            raise TypeError("The Hospital to be scheduled not type Hospital")
+        
+        self.Hospital = Hospital
+        self.timeline = timeline = [[0 for b in range(B)] for m in range(1440)] # 1440 minutes in 24 hours
+        self.unassigned = []
+
+    def greedy_schedule(self):
+        """
+        Goal is to minimize the wait times of all patients, weighted by priority
+        """
+
+        B = self.Hospital.NUM_BEDS
+        unserved = self.Hospital.unserved
+        
+        # greedy assignment should be prioritized by unserved priority list
+        for patient in unserved:
+
+            print(f"Serving patient {patient.id} ({patient.priority}) -- {print_time(patient.arrival_time)}")
+
+            assigned = False
+            minute = patient.arrival_time
+
+            while not assigned and minute < 1440:
+                
+                print(f"Patient: {patient.id}, minute: {minute}")
+
+                bed = 0
+                while not assigned and bed < B:
+
+                    print(f"Patient: {patient.id}, minute: {minute}, bed: {bed}")
+
+
+                    clear = True
+
+                    i = minute
+                    while clear and i < minute + patient.service_time and i < 1440:
+                        if self.timeline[i][bed] != 0:
+                            clear = False
+                        i += 1
+                    
+                    if clear:
+                        i = minute
+                        while i < minute + patient.service_time and i < 1440:
+                            self.timeline[i][bed] = patient
+                            i += 1
+                        assigned = True
+                    bed += 1
+                minute += 1
+
+            if not assigned:
+                print(f"Patient {patient.id} ({patient.priority}) not assigned -- {print_time(patient.arrival_time)}")
+                self.unassigned.append(patient)
+            else:
+                patient.service_start = minute - 1
+
+    def run_hospital(self):
+        for minute in range(1440):
+            change_made = False
+
+            for patient in self.Hospital.serving:
+                if minute - patient.service_start >= patient.service_time:
+                    self.Hospital.discharge_patient(patient)
+                    change_made = True
+                    print(f"Discharging {patient.id}")
+
+            for patient in self.Hospital.unserved:
+                # print(patient.arrival_time)
+                if patient.arrival_time <= minute:
+                    if self.Hospital.beds_available:
+                        self.Hospital.serve_patient(patient)
+                        patient.service_start = minute
+                        change_made = True
+                        print(f"Serving {patient.id}")
+            
+            # print current arrangement
+            if change_made:
+                self.print_arrangement(minute)
+                queue = ""
+                for patient in self.Hospital.unserved:
+                    if patient.arrival_time <= minute:
+                        queue = queue + f" {patient.id}:{patient.priority}"
+                print(f"Queue: {queue}")
+                    
+    def waiting_times(self):
+
+        waiting_times_list = []
+        for i in range(len(self.Hospital.patient_list)):
+            current_patient = self.Hospital.patient_list[i]
+            my_waiting_time = current_patient.get_waiting_time()
+            
+            if my_waiting_time > 0:
+
+                waiting_times_index = 0
+                while (waiting_times_index < len(waiting_times_list)) and (my_waiting_time < waiting_times_list[waiting_times_index].get_waiting_time()):
+                    waiting_times_index += 1
+                
+                waiting_times_list.insert(waiting_times_index, current_patient)
+
+        print("\n--Waiting Times--")
+        for patient in waiting_times_list:
+            print(f"id: {patient.id}, pri: {patient.priority}, wait: {patient.get_waiting_time()}")
+                    
+    def print_arrangement(self, time):
+
+        WIDTH = 10
+
+        bed_print = []
+        row = []
+
+        for bed in self.Hospital.beds:
+            if bed.id % WIDTH == 0:
+                if bed.id != 0:
+                    bed_print.append(row)
+                row = []
+                
+            if bed.occupied:
+                row.append(f"{bed.occupant.id}:{bed.occupant.priority}")
+            else:
+                row.append("   ")
+
+        bed_print.append(row)
+
+        # printing array
+        print(f"\n--HOSPITAL AT {print_time(time)}--")
+        for this_row in bed_print:
+            print(this_row)
+
+
+
 # running hospital simulation without constraint satisfacation
-B = 20  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 150  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+B = 5  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
+P = 30  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
 
 hospital = HospitalRecords(B)
 hospital.gen_patient_list(P)
@@ -62,7 +193,31 @@ for patient in hospital.unserved:
 # for patient in records.unserved:
 #     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
+
 # running the hospital simulation
-scheduler = Scheduler(hospital)
-scheduler.run_hospital()
-scheduler.waiting_times()
+# scheduler = Scheduler(hospital)
+# scheduler.run_hospital()
+# scheduler.waiting_times()
+
+greedy = GreedyScheduler(hospital)
+greedy.greedy_schedule()
+
+for minute in range(1440):
+    message = f"{print_time(minute)} - "
+    for bed in range(B):
+        if greedy.timeline[minute][bed] != 0:
+            message += f"[{greedy.timeline[minute][bed].id}]"
+        else:
+            message += "[  ]"
+    print(message)
+
+
+message = ""
+for patient in hospital.patient_list:
+    message += f"{patient.id}:{patient.arrival_time}={patient.service_start} :{patient.service_time} {patient.priority},   "
+
+print("Patient : arrival=start : service and priority")
+print(message)
+
+for patient in greedy.unassigned:
+    print(f"Patient {patient.id} ({patient.priority}) not assigned. Arrival: {print_time(patient.arrival_time)}. Penalty: {1440 * patient.priority}")

@@ -232,6 +232,6 @@ print(f"Objective value: {solver.ObjectiveValue()}")
 for p in range(P):
     if solver.Value(wait_times[p]):
         # print(f"Patient {p} wait time: {solver.Value(wait_times[p])}.   Optimality: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
-        print(f"Patient {p} arrival: {print_time(hospital.patient_list[p].arrival_time)}. Wait time: {print_time(int(solver.Value(wait_times[p]) / hospital.patient_list[p].priority))}")
+        print(f"Patient {p} ({hospital.patient_list[p].priority}) arrival: {print_time(hospital.patient_list[p].arrival_time)}. Wait time: {print_time(int(solver.Value(wait_times[p]) / hospital.patient_list[p].priority))}")
     if solver.Value(penalties[p]):
-        print(f"Patient {p} not assigned. Arrival: {print_time(hospital.patient_list[p].arrival_time)}. Penalty: {solver.Value(penalties[p])}")
+        print(f"Patient {p} ({hospital.patient_list[p].priority}) not assigned. Arrival: {print_time(hospital.patient_list[p].arrival_time)}. Penalty: {solver.Value(penalties[p])}")
