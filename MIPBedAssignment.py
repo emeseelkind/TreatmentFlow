@@ -14,9 +14,14 @@ from HospitalClasses import print_time
 from GreedyBedAssignment import Scheduler
 from ortools.sat.python import cp_model
 
-# running hospital simulation without constraint satisfacation
-B = 5  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 30  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+# B = 10  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
+# P = 75  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
+
+# user inputs for custom model showcasing
+print()
+B = int(input("How many beds        (int): "))
+P = int(input("How many patients    (int): "))
+time_limit = int(input("Time limit for MIP   (int): "))
 
 hospital = HospitalRecords(B)
 hospital.gen_patient_list(P)
@@ -201,11 +206,13 @@ cpmod.minimize(objective)
 # ---------------------------------
 
 # solving to achieve results
-print("Model complete. Solving now")
+# time_limit = 120
+print(f"Model complete. Solving now for {time_limit} seconds or less.")
 
 solver = cp_model.CpSolver()
 solver.parameters.log_search_progress = True
-solver.parameters.max_time_in_seconds = 30
+solver.parameters.max_time_in_seconds = time_limit
+solver_start = time.time()
 status = solver.solve(cpmod)
 
 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
@@ -233,8 +240,11 @@ print(f"Patients: {P}, Beds: {B}")
 
 # observing MIP solution
 print("\n-MIP Solution-")
-print(f"Objective value: {solver.ObjectiveValue()}")
-print(f"Time of execution: {time.time() - mip_start}\n")
+if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+    print(f"Objective value: {int(solver.ObjectiveValue())}")
+else:
+    print("Could not find a solution using MIP modelling")
+print(f"Time of execution: {time.time() - mip_start} ({solver_start - mip_start} building, {time.time() - solver_start} solving)\n")
 
 # message = ""
 # for patient in hospital.patient_list:
@@ -243,19 +253,20 @@ print(f"Time of execution: {time.time() - mip_start}\n")
 # print("Patient:arrival:service and priority")
 # print(message)
 
-for p in range(P):
-    if solver.Value(wait_times[p]):
-        # print(f"Patient {p} wait time: {solver.Value(wait_times[p])}.   Optimality: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
-        print(f"Patient {p} ({hospital.patient_list[p].priority}) arrival: {print_time(hospital.patient_list[p].arrival_time)}. Wait time: {print_time(int(solver.Value(wait_times[p]) / hospital.patient_list[p].priority))}")
-    if solver.Value(penalties[p]):
-        print(f"Patient {p} ({hospital.patient_list[p].priority}) not assigned. Arrival: {print_time(hospital.patient_list[p].arrival_time)}. Penalty: {solver.Value(penalties[p])}")
+if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+    for p in range(P):
+        if solver.Value(wait_times[p]):
+            # print(f"Patient {p} wait time: {solver.Value(wait_times[p])}.   Optimality: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
+            print(f"Patient {p} ({hospital.patient_list[p].priority}) arrival: {print_time(hospital.patient_list[p].arrival_time)}. Wait time: {print_time(int(solver.Value(wait_times[p]) / hospital.patient_list[p].priority))}")
+        if solver.Value(penalties[p]):
+            print(f"Patient {p} ({hospital.patient_list[p].priority}) not assigned. Arrival: {print_time(hospital.patient_list[p].arrival_time)}. Penalty: {solver.Value(penalties[p])}")
 
 # comparison to greedy bed assignment
+print("\n\n-Greedy Solution-")
 greedy_start = time.time()
 scheduler = Scheduler(hospital)
 scheduler.run_hospital(False)
 
-print("\n-Greedy Solution-")
 print(f"Objective value: {scheduler.objective()}")
 print(f"Time of execution: {time.time() - greedy_start}\n")
 
