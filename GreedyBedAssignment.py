@@ -44,7 +44,9 @@ class Scheduler:
         self.Hospital = Hospital
 
     # object oriented hospital simulator
-    def run_hospital(self):
+    def run_hospital(self, printing):
+
+        # 'printing' is boolean input to determine whether updating print happens
         for minute in range(1440):
             change_made = False
 
@@ -52,7 +54,7 @@ class Scheduler:
                 if minute - patient.service_start >= patient.service_time:
                     self.Hospital.discharge_patient(patient)
                     change_made = True
-                    print(f"Discharging {patient.id}")
+                    # print(f"Discharging {patient.id}")
 
             for patient in self.Hospital.unserved:
                 # print(patient.arrival_time)
@@ -61,10 +63,10 @@ class Scheduler:
                         self.Hospital.serve_patient(patient)
                         patient.service_start = minute
                         change_made = True
-                        print(f"Serving {patient.id}")
+                        # print(f"Serving {patient.id}")
             
             # print current arrangement
-            if change_made:
+            if change_made and printing:
                 self.print_arrangement(minute)
                 queue = ""
                 for patient in self.Hospital.unserved:
@@ -75,22 +77,35 @@ class Scheduler:
     def waiting_times(self):
 
         waiting_times_list = []
-        for i in range(len(self.Hospital.patient_list)):
-            current_patient = self.Hospital.patient_list[i]
-            my_waiting_time = current_patient.get_waiting_time()
+        for patient in self.Hospital.patient_list:
+            my_waiting_time = patient.get_waiting_time()
             
-            if my_waiting_time > 0:
-
+            if my_waiting_time != 0:
                 waiting_times_index = 0
                 while (waiting_times_index < len(waiting_times_list)) and (my_waiting_time < waiting_times_list[waiting_times_index].get_waiting_time()):
                     waiting_times_index += 1
                 
-                waiting_times_list.insert(waiting_times_index, current_patient)
+                waiting_times_list.insert(waiting_times_index, patient)
 
         print("\n--Waiting Times--")
         for patient in waiting_times_list:
             print(f"id: {patient.id}, pri: {patient.priority}, wait: {patient.get_waiting_time()}")
                     
+    def objective(self):
+
+        objective = 0
+        for patient in self.Hospital.patient_list:
+            my_waiting_time = patient.get_waiting_time()
+
+            if my_waiting_time >= 0:
+                # weigh wait times by priority to match MIP approach
+                objective += patient.priority * my_waiting_time
+            else:
+                # penalty tracker to match MIP approach
+                objective += patient.priority * 1440
+
+        return objective
+
     def print_arrangement(self, time):
 
         WIDTH = 10
@@ -115,25 +130,3 @@ class Scheduler:
         print(f"\n--HOSPITAL AT {print_time(time)}--")
         for this_row in bed_print:
             print(this_row)
-
-
-
-# running hospital simulation without constraint satisfacation
-B = 5  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 30  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
-
-hospital = HospitalRecords(B)
-hospital.gen_patient_list(P)
-
-print("\nPATIENTS:")
-for patient in hospital.patient_list:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-print("\nUNSERVED:")
-for patient in hospital.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-# running the hospital simulation
-scheduler = Scheduler(hospital)
-scheduler.run_hospital()
-scheduler.waiting_times()

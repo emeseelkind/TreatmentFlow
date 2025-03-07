@@ -8,8 +8,10 @@ Started: February 2025
 CISC 352: Artificial Intelligence
 """
 
+import time
 from HospitalClasses import HospitalRecords
 from HospitalClasses import print_time
+from GreedyBedAssignment import Scheduler
 from ortools.sat.python import cp_model
 
 # running hospital simulation without constraint satisfacation
@@ -32,6 +34,9 @@ Proposed constraints:
     - cannot assign a lower priority patient when a higher priority patient is waiting
     - must assign (or queue) every patient in the list of patients
 """
+
+# MIP modelling time tracker
+mip_start = time.time()
 
 # create solver
 cpmod = cp_model.CpModel()
@@ -220,7 +225,16 @@ if status == cp_model.OPTIMAL:
 elif status == cp_model.FEASIBLE:
     print(f"\nThe above solution is feasible, but was not proven optimal.")
 
+
+# solution comparison
+print("\n\n---SOLUTION COMPARISONS---")
+print("These solutions use the same randomly generated hospital and patients")
+print(f"Patients: {P}, Beds: {B}")
+
+# observing MIP solution
+print("\n-MIP Solution-")
 print(f"Objective value: {solver.ObjectiveValue()}")
+print(f"Time of execution: {time.time() - mip_start}\n")
 
 # message = ""
 # for patient in hospital.patient_list:
@@ -235,3 +249,20 @@ for p in range(P):
         print(f"Patient {p} ({hospital.patient_list[p].priority}) arrival: {print_time(hospital.patient_list[p].arrival_time)}. Wait time: {print_time(int(solver.Value(wait_times[p]) / hospital.patient_list[p].priority))}")
     if solver.Value(penalties[p]):
         print(f"Patient {p} ({hospital.patient_list[p].priority}) not assigned. Arrival: {print_time(hospital.patient_list[p].arrival_time)}. Penalty: {solver.Value(penalties[p])}")
+
+# comparison to greedy bed assignment
+greedy_start = time.time()
+scheduler = Scheduler(hospital)
+scheduler.run_hospital(False)
+
+print("\n-Greedy Solution-")
+print(f"Objective value: {scheduler.objective()}")
+print(f"Time of execution: {time.time() - greedy_start}\n")
+
+for p in range(P):
+    patient = hospital.patient_list[p]
+    if patient.get_waiting_time() > 0:
+        # print(f"Patient {p} wait time: {solver.Value(wait_times[p])}.   Optimality: {solver.Value(assignments[p])} - {solver.Value(wait_times[p])} = {solver.Value(assignments[p]) - solver.Value(wait_times[p])}")
+        print(f"Patient {p} ({patient.priority}) arrival: {print_time(patient.arrival_time)}. Wait time: {print_time(patient.get_waiting_time())}")
+    elif patient.get_waiting_time() < 0:
+        print(f"Patient {p} ({patient.priority}) not assigned. Arrival: {print_time(patient.arrival_time)}. Penalty: {patient.priority * 1440}")

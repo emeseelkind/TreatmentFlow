@@ -80,7 +80,7 @@ class Patient:
 
     def gen_rand_patient(self):
         self.priority = random.randint(1,5)
-        self.arrival_time = random.randint(1,1440)
+        self.arrival_time = random.randint(0,1439)
         self.set_service_time()
 
     def set_service_time(self):
@@ -100,7 +100,7 @@ class Patient:
 
     def get_waiting_time(self):
         if self.service_start == -1:
-            return 0.1 # signifies that the patient was not served in the day
+            return -1 # signifies that the patient was not served in the day
         return self.service_start - self.arrival_time
 
     def arrival_time_printed(self):
