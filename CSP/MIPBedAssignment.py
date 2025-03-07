@@ -216,6 +216,11 @@ solver_start = time.time()
 status = solver.solve(cpmod)
 
 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+    # tracking max patient integer for even line spacing in print
+    max_spaces = ""
+    for i in range(len(str(P - 1))):
+        max_spaces += " "
+
     for minute in range(1440):
         if minute < 600:
             message = f"{print_time(minute)}  - " # space lines evenly for single digit
@@ -224,12 +229,17 @@ if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
 
         for bed in range(B):
             this_value = solver.value(timeline[minute][bed])
-            if this_value >= 10: 
-                message += f"[{solver.value(timeline[minute][bed])}]"
-            elif this_value >= 0:
-                message += f"[ {solver.value(timeline[minute][bed])}]" # space lines evenly for single digit
+            
+            # track proper amount of spaces for even spacing
+            spaces = ""
+            for i in range(len(str(P - 1)) - len(str(solver.value(timeline[minute][bed])))):
+                spaces += " "
+
+            if this_value < 0:
+                message += f"[{max_spaces}]" # add spaces to match maximum digits
             else:
-                message += "[  ]"
+                message += f"[{spaces}{solver.value(timeline[minute][bed])}]"
+                
         print(message)
 else:
     print("No solution found.")
