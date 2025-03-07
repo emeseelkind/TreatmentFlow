@@ -222,7 +222,6 @@ if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         else:
             message = f"{print_time(minute)} - "
 
-
         for bed in range(B):
             this_value = solver.value(timeline[minute][bed])
             if this_value >= 10: 
