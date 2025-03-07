@@ -31,9 +31,6 @@ Patient
 
 HospitalRecords
 -   holds database for patients, beds in hospital
-
-Scheduler
--   simulates the operation of the hospital over a day given patients, beds
 """
 
 # function to print the time on a 24 hour clock based on minute input
@@ -169,10 +166,12 @@ class HospitalRecords:
                         return
             self.unserved.append(patient)
 
+    # run non-time bounded service of all unserved patients (for testing)
     def serve_patients(self):
         while self.beds_available and self.unserved:
             self.serve_patient(self.unserved[0])
     
+    # non-time bounded service of patient (for testing)
     def serve_patient(self, patient):
         if not type(patient) == Patient:
             raise TypeError("The patient to be served is not type Patient")
@@ -249,7 +248,7 @@ class HospitalRecords:
         while j < len(right):
             merged.append(right[j])
             j += 1
-
+        
         return merged
 
     def mergesort_patient_list(self, patient_list):
@@ -277,106 +276,12 @@ class HospitalRecords:
             
             # otherwise, sublist is already sorted
             return patient_list
-        else:
-            midpoint = len(patient_list) // 2
-            left_sorted = self.mergesort_patient_list(patient_list[0 : midpoint])
-            right_sorted = self.mergesort_patient_list(patient_list[midpoint + 1 :])
-            return self.merge_patient_list(left_sorted, right_sorted)
-
-            
-# hospital simulator class (for testing / showcase)
-class Scheduler:
-    def __init__(self, Hospital) -> None:
-        if not type(Hospital) == HospitalRecords:
-            raise TypeError("The Hospital to be scheduled not type Hospital")
         
-        self.Hospital = Hospital
+        else:
 
-    def run_hospital(self):
-        for minute in range(1440):
-            change_made = False
-
-            for patient in self.Hospital.serving:
-                if minute - patient.service_start >= patient.service_time:
-                    self.Hospital.discharge_patient(patient)
-                    change_made = True
-                    print(f"Discharging {patient.id}")
-
-            for patient in self.Hospital.unserved:
-                # print(patient.arrival_time)
-                if patient.arrival_time <= minute:
-                    if self.Hospital.beds_available:
-                        self.Hospital.serve_patient(patient)
-                        patient.service_start = minute
-                        change_made = True
-                        print(f"Serving {patient.id}")
+            # recursive case
+            midpoint = len(patient_list) // 2
+            left_sorted = self.mergesort_patient_list(patient_list[:midpoint])
+            right_sorted = self.mergesort_patient_list(patient_list[midpoint:])
             
-            # print current arrangement
-            if change_made:
-                self.print_arrangement(minute)
-                queue = ""
-                for patient in self.Hospital.unserved:
-                    if patient.arrival_time <= minute:
-                        queue = queue + f" {patient.id}:{patient.priority}"
-                print(f"Queue: {queue}")
-                    
-    def waiting_times(self):
-
-        waiting_times_list = []
-        for i in range(len(self.Hospital.patient_list)):
-            current_patient = self.Hospital.patient_list[i]
-            my_waiting_time = current_patient.get_waiting_time()
-            
-            if my_waiting_time > 0:
-
-                waiting_times_index = 0
-                while (waiting_times_index < len(waiting_times_list)) and (my_waiting_time < waiting_times_list[waiting_times_index].get_waiting_time()):
-                    waiting_times_index += 1
-                
-                waiting_times_list.insert(waiting_times_index, current_patient)
-
-        print("\n--Waiting Times--")
-        for patient in waiting_times_list:
-            print(f"id: {patient.id}, pri: {patient.priority}, wait: {patient.get_waiting_time()}")
-                    
-    def print_arrangement(self, time):
-
-        WIDTH = 10
-
-        bed_print = []
-        row = []
-
-        for bed in self.Hospital.beds:
-            if bed.id % WIDTH == 0:
-                if bed.id != 0:
-                    bed_print.append(row)
-                row = []
-                
-            if bed.occupied:
-                row.append(f"{bed.occupant.id}:{bed.occupant.priority}")
-            else:
-                row.append("   ")
-
-        bed_print.append(row)
-
-        # printing array
-        print(f"\n--HOSPITAL AT {print_time(time)}--")
-        for this_row in bed_print:
-            print(this_row)
-
-
-hosp = HospitalRecords(10)
-hosp.gen_patient_list(20)
-
-print("\nPATIENTS:")
-for patient in hosp.patient_list:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-sorted = hosp.mergesort_patient_list(hosp.patient_list)
-print("\nSORTED:")
-for patient in sorted:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-print("\nUNSERVED:")
-for patient in hosp.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+            return self.merge_patient_list(left_sorted, right_sorted)

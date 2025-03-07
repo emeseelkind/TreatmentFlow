@@ -9,7 +9,6 @@ CISC 352: Artificial Intelligence
 """
 
 from HospitalClasses import HospitalRecords
-from HospitalClasses import Scheduler
 from HospitalClasses import print_time
 
 # This file is an experimental application of our bed assignment system using the greedy paradigm
@@ -36,65 +35,15 @@ Summary of approach:
                         POTENTIAL ISSUE: how to avoid low-priority starvation
 """
 
-# hospital simulator class (for testing / showcase)
-class GreedyScheduler:
+# greedy-based hospital simulator class (for testing / showcase)
+class Scheduler:
     def __init__(self, Hospital) -> None:
         if not type(Hospital) == HospitalRecords:
             raise TypeError("The Hospital to be scheduled not type Hospital")
         
         self.Hospital = Hospital
-        self.timeline = timeline = [[0 for b in range(B)] for m in range(1440)] # 1440 minutes in 24 hours
-        self.unassigned = []
 
-    def greedy_schedule(self):
-        """
-        Goal is to minimize the wait times of all patients, weighted by priority
-        """
-
-        B = self.Hospital.NUM_BEDS
-        unserved = self.Hospital.unserved
-        
-        # greedy assignment should be prioritized by unserved priority list
-        for patient in unserved:
-
-            print(f"Serving patient {patient.id} ({patient.priority}) -- {print_time(patient.arrival_time)}")
-
-            assigned = False
-            minute = patient.arrival_time
-
-            while not assigned and minute < 1440:
-                
-                print(f"Patient: {patient.id}, minute: {minute}")
-
-                bed = 0
-                while not assigned and bed < B:
-
-                    print(f"Patient: {patient.id}, minute: {minute}, bed: {bed}")
-
-
-                    clear = True
-
-                    i = minute
-                    while clear and i < minute + patient.service_time and i < 1440:
-                        if self.timeline[i][bed] != 0:
-                            clear = False
-                        i += 1
-                    
-                    if clear:
-                        i = minute
-                        while i < minute + patient.service_time and i < 1440:
-                            self.timeline[i][bed] = patient
-                            i += 1
-                        assigned = True
-                    bed += 1
-                minute += 1
-
-            if not assigned:
-                print(f"Patient {patient.id} ({patient.priority}) not assigned -- {print_time(patient.arrival_time)}")
-                self.unassigned.append(patient)
-            else:
-                patient.service_start = minute - 1
-
+    # object oriented hospital simulator
     def run_hospital(self):
         for minute in range(1440):
             change_made = False
@@ -122,7 +71,7 @@ class GreedyScheduler:
                     if patient.arrival_time <= minute:
                         queue = queue + f" {patient.id}:{patient.priority}"
                 print(f"Queue: {queue}")
-                    
+
     def waiting_times(self):
 
         waiting_times_list = []
@@ -184,40 +133,7 @@ print("\nUNSERVED:")
 for patient in hospital.unserved:
     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
 
-# NON-TIME BOUNDED SERVING OF PATIENTS
-# print("SERVING PATIENTS")
-# records.serve_patients()
-# for bed in records.beds:
-#     print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}, --- {bed.occupant.service_time_printed()}")
-# print("UNSERVED:")
-# for patient in records.unserved:
-#     print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-
 # running the hospital simulation
-# scheduler = Scheduler(hospital)
-# scheduler.run_hospital()
-# scheduler.waiting_times()
-
-greedy = GreedyScheduler(hospital)
-greedy.greedy_schedule()
-
-for minute in range(1440):
-    message = f"{print_time(minute)} - "
-    for bed in range(B):
-        if greedy.timeline[minute][bed] != 0:
-            message += f"[{greedy.timeline[minute][bed].id}]"
-        else:
-            message += "[  ]"
-    print(message)
-
-
-message = ""
-for patient in hospital.patient_list:
-    message += f"{patient.id}:{patient.arrival_time}={patient.service_start} :{patient.service_time} {patient.priority},   "
-
-print("Patient : arrival=start : service and priority")
-print(message)
-
-for patient in greedy.unassigned:
-    print(f"Patient {patient.id} ({patient.priority}) not assigned. Arrival: {print_time(patient.arrival_time)}. Penalty: {1440 * patient.priority}")
+scheduler = Scheduler(hospital)
+scheduler.run_hospital()
+scheduler.waiting_times()
