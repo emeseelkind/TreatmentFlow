@@ -217,10 +217,18 @@ status = solver.solve(cpmod)
 
 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
     for minute in range(1440):
-        message = f"{print_time(minute)} - "
+        if minute < 600:
+            message = f"{print_time(minute)}  - " # space lines evenly for single digit
+        else:
+            message = f"{print_time(minute)} - "
+
+
         for bed in range(B):
-            if solver.value(timeline[minute][bed]) >= 0:
+            this_value = solver.value(timeline[minute][bed])
+            if this_value >= 10: 
                 message += f"[{solver.value(timeline[minute][bed])}]"
+            elif this_value >= 0:
+                message += f"[ {solver.value(timeline[minute][bed])}]" # space lines evenly for single digit
             else:
                 message += "[  ]"
         print(message)
