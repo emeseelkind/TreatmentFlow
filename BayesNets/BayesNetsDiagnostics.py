@@ -47,14 +47,11 @@ def data_preprocessing(file_path):
 
 
 # Step 2: Define the Bayesian Network structure
-def create_bayesian_network(df ):
-<<<<<<< HEAD
+def create_bayesian_network(df):
+    """
+    Create a naive Bayesian network using the diagnostics file information
+    """
     pass
-=======
-    """
-    Create naive Bayesian Network structure based on diagnostics csv
-    """
->>>>>>> eb71dee (added comment for create_bayesian_network)
 
 
 # Step 3: Train the Bayesian Network
@@ -64,6 +61,8 @@ def train_model(model, df):
     MaximumLikelihoodEstimator from pgmpy.estimators import MaximumLikelihoodEstimator
     """
     pass
+
+
 # Step 4: Create an inference engine
 def create_inference_engine(model):
     """
@@ -106,7 +105,8 @@ def generate_doctor_report(probabilities, evidence, df):
     """
     pass
 
-    # Main function to run the entire pipeline
+
+# Main function to run the entire pipeline
 def run_diagnostic_system(file_path, observed_symptoms):
     """
     Run the entire diagnostic system pipeline.
@@ -119,6 +119,7 @@ def run_diagnostic_system(file_path, observed_symptoms):
     Diagnosis report
     """
     pass
+
 
 # for each possible diagnosis, we want:
     # P(Di | S1, S2, ..., Sn)
@@ -139,6 +140,7 @@ def run_diagnostic_system(file_path, observed_symptoms):
     # bayes net should allow us to output the posterior probability of a diagnosis D given some observed evidence S
         # P(D|S) = (P(S|D) * P(D)) / P(S)
         # display the ~10 most probable diagnoses given a set of evidence (boolean symptom values)
+
 
 def main():
     print("\nData Preprocessing:\n")
