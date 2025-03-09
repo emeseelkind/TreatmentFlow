@@ -11,33 +11,34 @@ CISC 352: Artificial Intelligence
 # this file is an implementation of Bayes' Nets used to generate disease probability documents for doctors
 
 import csv
+def data_preprocessing(file_path):
+    # importing symptom data file
+    diagnostics = []
+    with open(file_path) as symptom_info:
+        reader = csv.reader(symptom_info)
+        for row in reader:
+            diagnostics.append(row)
 
-# importing symptom data file
-diagnostics = []
-with open("BayesNets/symbipredict_2022.csv") as symptom_info:
-    reader = csv.reader(symptom_info)
-    for row in reader:
-        diagnostics.append(row)
+    diagnoses = [row[-1] for row in diagnostics[1:]]        # list of possible diagnoses
+    diagnosis_options = []  # list of each possible diagnosis (without duplicates)
 
-diagnoses = [row[-1] for row in diagnostics[1:]]        # list of possible diagnoses
-diagnosis_options = []  # list of each possible diagnosis (without duplicates)
+    i = 0
+    while i < len(diagnoses):
+        if diagnoses[i] not in diagnosis_options:
+            diagnosis_options.append(diagnoses[i])
+        i += 1
 
-i = 0
-while i < len(diagnoses):
-    if diagnoses[i] not in diagnosis_options:
-        diagnosis_options.append(diagnoses[i])
-    i += 1
+    symptoms = diagnostics[0][:-1] # list of all symptom variables
+    symptom_bools = [row[:-1] for row in diagnostics[1:]]   # 2d array of booleans referring to symptoms
 
-symptoms = diagnostics[0][:-1] # list of all symptom variables
-symptom_bools = [row[:-1] for row in diagnostics[1:]]   # 2d array of booleans referring to symptoms
+    # goal with CPTs: get the conditional probabilities of each diagnosis given symptoms
 
-# goal with CPTs: get the conditional probabilities of each diagnosis given symptoms
-
-# print(len(diagnoses))
-print(diagnosis_options)
-print(len(diagnosis_options))
-# print(len(symptoms))
-# print(len(symptom_bools[0]))
+    # print(len(diagnoses))
+    print(diagnosis_options)
+    print(len(diagnosis_options))
+    # print(len(symptoms))
+    # print(len(symptom_bools[0]))
+    return diagnoses, diagnosis_options, symptoms, symptom_bools
 
 # for each possible diagnosis, we want:
     # P(Di | S1, S2, ..., Sn)
@@ -58,3 +59,12 @@ print(len(diagnosis_options))
     # bayes net should allow us to output the posterior probability of a diagnosis D given some observed evidence S
         # P(D|S) = (P(S|D) * P(D)) / P(S)
         # display the ~10 most probable diagnoses given a set of evidence (boolean symptom values)
+
+def main():
+    print("\nData Preprocessing:\n")
+    file_path = "BayesNets/symbipredict_2022.csv"
+    diagnoses, diagnosis_options, symptoms, symptom_bools = data_preprocessing(file_path)
+
+
+if __name__ == "__main__":
+    main()
