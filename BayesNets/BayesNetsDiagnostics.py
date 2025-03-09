@@ -19,7 +19,7 @@ def data_preprocessing(file_path):
         for row in reader:
             diagnostics.append(row)
 
-    diagnoses = [row[-1] for row in diagnostics[1:]]        # list of possible diagnoses
+    diagnoses = [row[-1] for row in diagnostics[1:]] # list of possible diagnoses
     diagnosis_options = []  # list of each possible diagnosis (without duplicates)
 
     i = 0
@@ -38,8 +38,77 @@ def data_preprocessing(file_path):
     print(len(diagnosis_options))
     # print(len(symptoms))
     # print(len(symptom_bools[0]))
+
+
+    # Clean column names (remove spaces, special chars)
+    # df.columns = [col.strip().replace(' ', '_').replace('(', '').replace(')', '').lower() for col in df.columns]
+    
     return diagnoses, diagnosis_options, symptoms, symptom_bools
 
+
+# Step 2: Define the Bayesian Network structure
+def create_bayesian_network(df ):
+
+
+
+# Step 3: Train the Bayesian Network
+def train_model(model, df):
+    """
+    Train the Bayesian Network using Maximum Likelihood or Bayesian estimation.
+    MaximumLikelihoodEstimator from pgmpy.estimators import MaximumLikelihoodEstimator
+    """
+# Step 4: Create an inference engine
+def create_inference_engine(model):
+    """
+    Create an inference engine for the Bayesian Network.
+    posterior probabilistic inference
+    VariableElimination
+    """
+
+
+# Step 5: Generate diagnosis probabilities
+def generate_diagnosis_probabilities(inference_engine, symptoms, evidence):
+    """
+    Generate probabilities for possible diagnoses given observed symptoms.
+    
+    Parameters:
+    inference_engine: The inference engine
+    symptoms: List of all symptom variables
+    evidence: Dictionary of observed symptoms {symptom_name: value (0 or 1)}
+    
+    Returns:
+    DataFrame with diagnosis probabilities
+    """
+
+
+
+# Step 6: Generate a comprehensive report for doctors
+def generate_doctor_report(probabilities, evidence, df):
+    """
+    Generate a comprehensive report for doctors with diagnosis probabilities
+    and relevant symptom information.
+    
+    Parameters:
+    probabilities: DataFrame with diagnosis probabilities
+    evidence: Dictionary of observed symptoms
+    df: Original dataframe with all data
+    
+    Returns:
+    Report as a string
+    """
+
+    # Main function to run the entire pipeline
+def run_diagnostic_system(file_path, observed_symptoms):
+    """
+    Run the entire diagnostic system pipeline.
+    
+    Parameters:
+    file_path: Path to the dataset file
+    observed_symptoms: List of observed symptoms as strings
+    
+    Returns:
+    Diagnosis report
+    """
 # for each possible diagnosis, we want:
     # P(Di | S1, S2, ..., Sn)
 
@@ -64,7 +133,21 @@ def main():
     print("\nData Preprocessing:\n")
     file_path = "BayesNets/symbipredict_2022.csv"
     diagnoses, diagnosis_options, symptoms, symptom_bools = data_preprocessing(file_path)
+    print("\nBayesian Network Creation:\n")
+    model = create_bayesian_network(symptoms, symptom_bools)
+    print("\nTraining the Bayesian Network:\n")
+    train_model(model, symptom_bools)
+    print("\nCreating the Inference Engine:\n")
+    inference_engine = create_inference_engine(model)
+    print("\nGenerating Diagnosis Probabilities:\n")
+    probabilities = generate_diagnosis_probabilities(inference_engine, symptoms, observed_symptoms)
+    print("\nGenerating Doctor Report:\n")
 
+    #observed_symptoms = testing set from list of symptoms./// or new patient input
+    report = generate_doctor_report(probabilities, observed_symptoms)
+    print(report)
+    run_diagnostic_system(file_path, observed_symptoms)
+    
 
 if __name__ == "__main__":
     main()
