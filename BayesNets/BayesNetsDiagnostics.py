@@ -48,7 +48,7 @@ def data_preprocessing(file_path):
 
 # Step 2: Define the Bayesian Network structure
 def create_bayesian_network(df ):
-
+    pass
 
 
 # Step 3: Train the Bayesian Network
@@ -57,6 +57,7 @@ def train_model(model, df):
     Train the Bayesian Network using Maximum Likelihood or Bayesian estimation.
     MaximumLikelihoodEstimator from pgmpy.estimators import MaximumLikelihoodEstimator
     """
+    pass
 # Step 4: Create an inference engine
 def create_inference_engine(model):
     """
@@ -64,6 +65,7 @@ def create_inference_engine(model):
     posterior probabilistic inference
     VariableElimination
     """
+    pass
 
 
 # Step 5: Generate diagnosis probabilities
@@ -79,7 +81,7 @@ def generate_diagnosis_probabilities(inference_engine, symptoms, evidence):
     Returns:
     DataFrame with diagnosis probabilities
     """
-
+    pass
 
 
 # Step 6: Generate a comprehensive report for doctors
@@ -96,6 +98,7 @@ def generate_doctor_report(probabilities, evidence, df):
     Returns:
     Report as a string
     """
+    pass
 
     # Main function to run the entire pipeline
 def run_diagnostic_system(file_path, observed_symptoms):
@@ -109,6 +112,8 @@ def run_diagnostic_system(file_path, observed_symptoms):
     Returns:
     Diagnosis report
     """
+    pass
+
 # for each possible diagnosis, we want:
     # P(Di | S1, S2, ..., Sn)
 
