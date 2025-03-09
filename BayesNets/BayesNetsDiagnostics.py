@@ -48,7 +48,13 @@ def data_preprocessing(file_path):
 
 # Step 2: Define the Bayesian Network structure
 def create_bayesian_network(df ):
+<<<<<<< HEAD
     pass
+=======
+    """
+    Create naive Bayesian Network structure based on diagnostics csv
+    """
+>>>>>>> eb71dee (added comment for create_bayesian_network)
 
 
 # Step 3: Train the Bayesian Network
