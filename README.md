@@ -15,7 +15,7 @@ Usage instructions:
     2. generate a list of patients using the gen_patient_list method with a number of patients above 0
     3. construct a scheduler using the Schedule class and the hospital object
     4. use the method(s) run_hospital() (and waiting_times()) to display the Greedy approach's output
-- For Deep Learning components...
+- For Deep Learning components run the DeepLearningMLP file to generate the confusion matrix and view the model accuracy.
 
 # Installation Instructions
 
