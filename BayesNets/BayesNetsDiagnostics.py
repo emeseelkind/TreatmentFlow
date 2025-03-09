@@ -14,10 +14,13 @@ import csv
 
 # importing symptom data file
 diagnostics = []
-with open("symbipredict_2022.csv") as symptom_info:
+with open("BayesNets/symbipredict_2022.csv") as symptom_info:
     reader = csv.reader(symptom_info)
     for row in reader:
         diagnostics.append(row)
 
 symptoms = diagnostics[0][:-1]  # list of symptoms
 diagnostics = diagnostics[1:]   # list of diagnostic observations (with prognosis)
+
+print(symptoms)
+
