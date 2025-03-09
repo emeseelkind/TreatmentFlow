@@ -153,10 +153,11 @@ def main():
     print("\nCreating the Inference Engine:\n")
     inference_engine = create_inference_engine(model)
     print("\nGenerating Diagnosis Probabilities:\n")
+
+    #observed_symptoms = testing set from list of symptoms./// or new patient input
     probabilities = generate_diagnosis_probabilities(inference_engine, symptoms, observed_symptoms)
     print("\nGenerating Doctor Report:\n")
 
-    #observed_symptoms = testing set from list of symptoms./// or new patient input
     report = generate_doctor_report(probabilities, observed_symptoms)
     print(report)
     run_diagnostic_system(file_path, observed_symptoms)
