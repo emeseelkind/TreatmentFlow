@@ -8,19 +8,8 @@ Started: February 2025
 CISC 352: Artificial Intelligence
 """
 
-<<<<<<< Updated upstream
-import random
-=======
 from HospitalClasses import HospitalRecords
-from HospitalClasses import Scheduler
 from HospitalClasses import print_time
-
-from ortools.init.python import init
-from ortools.linear_solver import pywraplp
-from ortools.math_opt.python import mathopt
-from ortools.sat.python import cp_model
-
->>>>>>> Stashed changes
 
 # This file is an experimental application of our bed assignment system using the greedy paradigm
 
@@ -46,429 +35,150 @@ Summary of approach:
                         POTENTIAL ISSUE: how to avoid low-priority starvation
 """
 
-<<<<<<< Updated upstream
-# bed class
-class Bed:
-    def __init__(self, id=0) -> None:
-        self.id = id
-        self.occupied = False
-        self.occupant = None
-=======
-# running hospital simulation without constraint satisfacation
-B = 10  # CHANGE VALUE TO CHANGE NUMBER OF BEDS
-P = 20  # CHANGE VALUE TO CHANGE NUMBER OF PATIENTS
->>>>>>> Stashed changes
-
-    def assign(self, patient):
-        if not type(patient) == Patient:
-            raise TypeError("The value to be assigned to a bed not type Patient")
+# greedy-based hospital simulator class (for testing / showcase)
+class Scheduler:
+    def __init__(self, Hospital) -> None:
+        if not type(Hospital) == HospitalRecords:
+            raise TypeError("The Hospital to be scheduled not type Hospital")
         
-        self.occupied = True
-        self.occupant = patient
+        self.Hospital = Hospital
 
-    def discharge(self):
-        patient = self.occupant
+    # object oriented hospital simulator
+    def run_hospital(self, printing):
 
-        self.occupied = False
-        self.occupant = None
+        # 'printing' is boolean input to determine whether updating print happens
+        for minute in range(1440):
+            change_made = False
 
-        return patient
+            for patient in self.Hospital.serving:
+                if minute - patient.service_start >= patient.service_time:
+                    self.Hospital.discharge_patient(patient)
+                    change_made = True
+                    # print(f"Discharging {patient.id}")
 
-# patient class includes information about each individual patient
-class Patient:
-    def __init__(self, id=0, priority=0, arrival_time=0, service_time=0) -> None:
-        self.id = id
-        self.priority = priority
-        self.arrival_time = arrival_time
-        self.service_time = service_time
-
-    def gen_rand_patient(self):
-        self.priority = random.randint(1,5)
-        self.arrival_time = random.randint(1,1440)
-        self.set_service_time()
-
-    def set_service_time(self):
-        if self.priority == 1:
-            self.service_time = random.randint(10, 60)
-        elif self.priority == 2:
-            self.service_time = random.randint(20, 90)
-        elif self.priority == 3:
-            self.service_time = random.randint(30, 180)
-        elif self.priority == 4:
-            self.service_time = random.randint(60, 360)
-        elif self.priority == 5:
-            self.service_time = random.randint(120, 500)
-
-    def arrival_time_printed(self):
-        hours = 0
-        minutes = self.arrival_time
-        while minutes >= 60:
-            hours += 1
-            minutes -= 60
-
-        print_min = str(minutes)
-        if minutes < 10:
-            print_min = f"0{minutes}"
-
-        return f"{hours}:{print_min}"
-    
-    def service_time_printed(self):
-        hours = 0
-        minutes = self.service_time
-        while minutes >= 60:
-            hours += 1
-            minutes -= 60
-
-        print_min = str(minutes)
-        if minutes < 10:
-            print_min = f"0{minutes}"
-
-        return f"{hours}:{print_min}"
-        
-     
-# patient records class includes information about every patient in the hospital
-class HospitalRecords:
-    def __init__(self, NUM_BEDS=0) -> None:
-        # patient information
-        self.patient_list = []
-        self.unserved = []
-        self.max_patient_id = 0
-
-        # resource information
-        self.NUM_BEDS = NUM_BEDS
-        self.beds_available = NUM_BEDS
-
-        self.beds = []
-        for i in range(NUM_BEDS):
-            new_bed = Bed(i)
-            self.beds.append(new_bed)
-
-    def gen_patient_list(self, numpatients):
-        self.max_patient_id = 0
-        plist = []
-        
-        for i in range(numpatients):
-            new_patient = Patient(i)
-            new_patient.gen_rand_patient()
-
-            plist.append(new_patient)
-            self.insert_unserved(new_patient)
-
-            self.max_patient_id += 1
-
-        self.patient_list = plist
-
-    def add_patient(self, patient):
-        if not type(patient) == Patient:
-            raise TypeError("The value inserted to the patient_list is not type Patient")
-        
-        self.max_patient_id += 1
-        self.patient_list.append(patient)
-        self.insert_unserved(patient)
-
-    def insert_unserved(self, patient):
-        if not type(patient) == Patient:
-            raise TypeError("The value inserted to the unserved list is not type Patient")
-        
-        if patient not in self.unserved:
-            for i in range(len(self.unserved)):
-                if patient.priority > self.unserved[i].priority:
-                    self.unserved.insert(i, patient)
-                    return
-                elif patient.priority == self.unserved[i].priority:
-                    if self.unserved[i].arrival_time > patient.arrival_time:
-                        self.unserved.insert(i, patient)
-                        return
-            self.unserved.append(patient)
-
-    def serve_next_patient(self):
-        if self.unserved:
-            next_patient = self.unserved[0]
-            self.unserved = self.unserved[1:]
-
-            if self.beds_available:
-                for bed in self.beds:
-                    if not bed.occupied:
-                        bed.assign(next_patient)
-                        bed.occupied = True
-
-                        self.beds_available -= 1
-                        return
-    
-    def discharge_patient(self, patient):
-        if not type(patient) == Patient:
-            raise TypeError("The patient to be discharged is not type Patient")
-        
-        for bed in self.beds:
-            if bed.occupant == patient:
-                bed.occupant = None
-                bed.occupied = False
-
-                self.beds_available += 1
-                return
+            for patient in self.Hospital.unserved:
+                # print(patient.arrival_time)
+                if patient.arrival_time <= minute:
+                    if self.Hospital.beds_available:
+                        self.Hospital.serve_patient(patient)
+                        patient.service_start = minute
+                        change_made = True
+                        # print(f"Serving {patient.id}")
             
-    def serve_patients(self):
-        while self.beds_available:
-            self.serve_next_patient()
+            # print current arrangement
+            if change_made and printing:
+                self.print_arrangement(minute)
+                queue = ""
+                for patient in self.Hospital.unserved:
+                    if patient.arrival_time <= minute:
+                        queue = queue + f" {patient.id}:{patient.priority}"
+                print(f"Queue: {queue}")
+
+    def waiting_times(self):
+
+        waiting_times_list = []
+        for patient in self.Hospital.patient_list:
+            my_waiting_time = patient.get_waiting_time()
+            
+            if my_waiting_time != 0:
+                waiting_times_index = 0
+                while (waiting_times_index < len(waiting_times_list)) and (my_waiting_time < waiting_times_list[waiting_times_index].get_waiting_time()):
+                    waiting_times_index += 1
                 
-        
-records = HospitalRecords(5)
-records.gen_patient_list(10)
+                waiting_times_list.insert(waiting_times_index, patient)
 
-print("PATIENTS:")
-for patient in records.patient_list:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+        print("\n--Waiting Times--")
+        for patient in waiting_times_list:
+            print(f"id: {patient.id}, pri: {patient.priority}, wait: {patient.get_waiting_time()}")
+                    
+    def objective(self):
 
-print("UNSERVED:")
-for patient in records.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
+        objective = 0
+        for patient in self.Hospital.patient_list:
+            my_waiting_time = patient.get_waiting_time()
 
-print("SERVING PATIENTS")
-records.serve_patients()
-for bed in records.beds:
-    print(f"Bed{bed.id}: {bed.occupant.id}, {bed.occupant.priority}, {bed.occupant.arrival_time_printed()}, --- {bed.occupant.service_time_printed()}")
-print("UNSERVED:")
-for patient in records.unserved:
-    print(f"{patient.id}, {patient.priority}, {patient.arrival_time_printed()}, --- {patient.service_time_printed()}")
-
-"""
-Now that problem formulation is complete, we can calculate constraints and solutions given an objective function
-
-Proposed objective function: 
-    - minimize the wait times for each patient, making where high-priority patients wait times is minimized the most
-        - medium-priority wait times are minimized second, etc.
-
-Proposed constraints:
-    - cannot assign a patient to an occupied bed
-    - cannot assign a lower priority patient when a higher priority patient is waiting
-    - must assign (or queue) every patient in the list of patients
-"""
-<<<<<<< Updated upstream
-=======
-
-input()
-
-
-print("\n\n--- SOLVING SECTION ---")
-
-# create solver
-# solver = pywraplp.Solver.CreateSolver("SAT")
-# if not solver:
-#     raise Exception("Could not create solver SAT")
-
-model = mathopt.Model(name="BedsModel")
-cpmod = cp_model.CpModel()
-
-
-# create variables
-"""
-For the variables, we are adding a 'bed' for each minute of the day
--   in each bed (at that minute), the domain is each integer in range(number of patients)
--   if a bed is given the value k, it is occupied by patient k at that minute
-"""
-
-print("Adding variables")
-
-timeline = [[0 for b in range(B)] for m in range(1440)] # 1440 minutes in 24 hours
-variables = []
-
-for minute in range(1440):
-    for bed in range(B):
-        timeline[minute][bed] = cpmod.NewIntVar(lb=-1, ub=P-1, name=f"bed_{bed}_at_{minute}") # -1 means empty bed, 0 to P-1 is a patient id
-        variables.append(timeline[minute][bed])
-        # solver.IntVar(0, P-1, f"bed_{bed}_at_{minute}")
-
-# print(timeline)
-
-# bed assignment constraints
-"""
-Patient arrival time consideration
--   a patient can only be assigned a bed when they have already arrived at the hospital
-
-Patient to bed exclusivity
--   a patient can only be assigned a bed when there is no other patient in it
--   a patient can only be in one bed at a time
-
-Patient contiguousness
--   a patent being assigned to a bed will be assigned for a contiguous period
-
-Patient tenure
--   the difference between the final minute where a patient is assigned and the first
-    cannot exceed the patient's service time
-    -   for every minute where a patient is assigned to a bed (where value is true),
-        the variable in the same bed (service_time) minutes ago is not the same patient (or no patient)
-
--   the difference between the final minute where a patient is assigned and the first
-    MUST equal the patient's service time, unless:
-    -   (final minute of day - first minute of patient assignment) < service time
-"""
-
-# IMPORTANT NOTE: MAKE SURE MINUTES CAN BE SET TO 'NO PATIENT'
-
-print("Adding constraints")
-
-# patient-based constraints
-
-print("Building contiguity")
-
-# contiguity constraint
-for bed in range(B):
-    print(f"Contiguity of bed {bed}")
-    for p in range(P):
-
-        discharges_list = []
-        discharges = cpmod.NewIntVar(0, 1439, f"discharges_{p}") # could potentially be a discharge at every minute
-
-        for minute in range(1439):
-
-            # make and enforce boolean variable for when current minute is patient p
-            this_is_p = cpmod.NewBoolVar(f"this_is_{p}_at_{minute}")
-            cpmod.Add(timeline[minute][bed] == p).OnlyEnforceIf(this_is_p)
-            cpmod.Add(timeline[minute][bed] != p).OnlyEnforceIf(this_is_p.Not())
-
-            # make and enforce boolean variable for when next minute is patient p
-            next_is_p = cpmod.NewBoolVar(f"next_is_{p}_at_{minute}")
-            cpmod.Add(timeline[minute + 1][bed] == p).OnlyEnforceIf(next_is_p)
-            cpmod.Add(timeline[minute + 1][bed] != p).OnlyEnforceIf(next_is_p.Not())
-            
-            # get discharge variable and enforce: current minute is p and next is not
-            discharge = cpmod.NewBoolVar(f"discharge_{p}_at_{bed}")
-            cpmod.AddBoolAnd([this_is_p, next_is_p.Not()]).OnlyEnforceIf(discharge)
-            cpmod.AddBoolOr([this_is_p.Not(), next_is_p]).OnlyEnforceIf(discharge.Not())
-
-            discharges_list.append(discharge)
-            
-        # enforce discharges variable: can only have one discharge per patient
-        cpmod.Add(discharges == sum(discharges_list))
-        cpmod.Add(discharges <= 1)
-
-            
-print("Building other constraints")
-
-for minute in range(1440):
-
-    # ensure a patient can only be assigned to a single bed during a minute
-    # add forbidden assignment between each possible pair of variables, for each possible patient value
-    for current in range(len(timeline[minute])):
-        for comp in range(current + 1, len(timeline[minute])):
-            cpmod.AddForbiddenAssignments([timeline[minute][current], timeline[minute][comp]], [(p, p) for p in range(P)])
-
-    for bed in range(B):
-        forbidden_clause = []
-
-        for p in range(P):
-            arrival = hospital.patient_list[p].arrival_time
-            service = hospital.patient_list[p].service_time
-
-            # patient cannot be served before their arrival
-            if minute < arrival:
-                
-                # print(f"Patient: {p}, arrival: {arrival}, currentminute: {minute}")
-                # print([timeline[minute][bed]], [[p]])
-
-                cpmod.AddForbiddenAssignments([timeline[minute][bed]], [[p]])
-                
-            else: # other constraints are irrelevant if this minute cannot be assigned
-
-                # patient cannot be in bed longer than their service time
-                # if minute - service >= 0:
-                #     cpmod.AddForbiddenAssignments([timeline[minute][bed], timeline[minute - service][bed]], [(p, p)])
-
-
-                # patient contiguousness
-                """
-                if [minute] == patient and [minute - x] == patient
-                    [minute - 1] == patient
-                    [minute - 2] == patient
-                    ...
-                    [minute - (x-1)] = patient
-                """
-
-
-
-                # patient cannot be discharged early
-                """
-                if ([minute - 1] != patient) and ([minute] == patient):
-                    if minute + service < 1440:
-                        [minute + service] == patient
-                    else:
-                        [final minute] == patient
-                """
-
-    
-
-
-
-# objective function
-"""
-Objective function
--   minimize the wait times of patients, with higher-priority patients scaled such 
-    that their wait times are more punishing if long (multiply wait times by patient cost)
-"""
-
-print("Adding objective function")
-
-weighted_wait_times = 0
-for minute in range(1440):
-    for bed in range(B):
-        for p in range(P):
-            arrival = hospital.patient_list[p].arrival_time
-            priority = hospital.patient_list[p].priority
-
-            # add wait time * priority to objective expression
-            """
-            if ([minute - 1] != patient) and ([minute] == patient):
-                weighted_wait_times = weighted_wait_times + (minute - arrival) * priority
-            """
-
-# testing objective functions
-sum_of_pats = 0
-for var in variables:
-    sum_of_pats += var
-
-
-
-cpmod.maximize(sum_of_pats)
-
-# ---------------------------------
-
-# for var in variables:
-#     print(var)
-
-# solving to achieve results
-print("Model complete. Solving now")
-
-solver = cp_model.CpSolver()
-solver.parameters.log_search_progress = True
-status = solver.solve(cpmod)
-
-if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-    for minute in range(1440):
-        message = f"{minute}: "
-        for bed in range(B):
-            if solver.value(timeline[minute][bed]) >= 0:
-                message += f"[{solver.value(timeline[minute][bed])}]"
+            if my_waiting_time >= 0:
+                # weigh wait times by priority to match MIP approach
+                objective += patient.priority * my_waiting_time
             else:
-                message += "[  ]"
-            # print(f"Bed {solver.value(timeline[minute][bed])}")
+                # penalty tracker to match MIP approach
+                objective += patient.priority * 1440
+
+        return objective
+
+    def print_arrangement(self, time):
+
+        WIDTH = 10
+
+        bed_print = []
+        row = []
+
+        for bed in self.Hospital.beds:
+            if bed.id % WIDTH == 0:
+                if bed.id != 0:
+                    bed_print.append(row)
+                row = []
+                
+            if bed.occupied:
+                row.append(f"{bed.occupant.id}:{bed.occupant.priority}")
+            else:
+                row.append("   ")
+
+        bed_print.append(row)
+
+        # printing array
+        print(f"\n--HOSPITAL AT {print_time(time)}--")
+        for this_row in bed_print:
+            print(this_row)
+
+
+# # testing Greedy so many times
+# pat_denoms = [5, 10, 25, 50, 100, 250, 500]
+# bed_denoms = [5, 10, 25, 50, 100]
+
+# info = [[0 for p in range(len(pat_denoms))] for b in range(len(bed_denoms))]
+# obj_info = [[0 for p in range(len(pat_denoms))] for b in range(len(bed_denoms))]
+# NUM_OBS = 100
+
+# for b in range(len(bed_denoms)):
+
+#     row = ""
+
+#     for p in range(len(pat_denoms)):
+
+#         total_wait_times = 0
+#         total_unserved = 0
+#         total_obj = 0
+
+#         # randomized hospitals
+#         for i in range(NUM_OBS):
+
+#             # build and run randomized hospital
+#             hospital = HospitalRecords(bed_denoms[b])
+#             scheduler = Scheduler(hospital)
+#             hospital.gen_patient_list(pat_denoms[p])
+#             scheduler.run_hospital(False)
+
+#             total_obj += scheduler.objective()
+
+#             for patient in hospital.patient_list:
+#                 if patient.get_waiting_time() < 0:
+#                     total_unserved += 1
+#                 else:
+#                     total_wait_times += patient.get_waiting_time()
+        
+#         info[b][p] = f"[{int((total_wait_times / NUM_OBS / pat_denoms[p]))}, {int(total_unserved / NUM_OBS)}]"
+#         obj_info[b][p] = f"[{int(total_obj / NUM_OBS)}]"
+
+#         row += info[b][p]
     
-        print(message)
-    
-    # print(f"x = {solver.value(x)}")
-    # print(f"y = {solver.value(y)}")
-    # print(f"z = {solver.value(z)}")
-else:
-    print("No solution found.")
+#     print(row)
 
-message = ""
-for patient in hospital.patient_list:
-    message += f"{patient.id}:{patient.arrival_time}, "
 
-print(message)
-
-# if result == pywraplp.Solver.OPTIMAL:
-#     print("Solution:")
-#     print("Objective value =", solver.Objective().Value())
-#     for bed in range(B):
-#         print(f"Bed {bed} =", timeline[0][bed].solution_value())
->>>>>>> Stashed changes
+# # printing obj info
+# print("\nObjective info")
+# for b in range(len(bed_denoms)):
+#     row = ""
+#     for p in range(len(pat_denoms)):
+#         row += obj_info[b][p]
+#     print(row)
