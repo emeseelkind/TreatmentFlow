@@ -261,22 +261,39 @@ def run_diagnostic_system(file_path, observed_symptoms):
 def main():
     print("\nData Preprocessing:\n")
     file_path = "BayesNets/symbipredict_2022.csv"
-    diagnoses, diagnosis_options, symptoms, symptom_bools = data_preprocessing(file_path)
+    df, symptoms, diagnosis_options = data_preprocessing(file_path)
+    
     print("\nBayesian Network Creation:\n")
-    model = create_bayesian_network(symptoms, symptom_bools)
+    model = create_bayesian_network(df, symptoms)
+    
     print("\nTraining the Bayesian Network:\n")
-    train_model(model, symptom_bools)
+    trained_model = train_model(model, df)
+    
     print("\nCreating the Inference Engine:\n")
-    inference_engine = create_inference_engine(model)
+    inference_engine = create_inference_engine(trained_model)
+    
     print("\nGenerating Diagnosis Probabilities:\n")
-
-    #observed_symptoms = testing set from list of symptoms./// or new patient input
+    
+    # Example of observed symptoms - this would typically come from user input
+    # Format: {symptom_name: value} where value is 1 for present, 0 for absent
+    observed_symptoms = {
+        'fever': 1,
+        'cough': 1,
+        'shortness_of_breath': 0,
+        'fatigue': 1,
+        'headache': 1
+    }
+    
     probabilities = generate_diagnosis_probabilities(inference_engine, symptoms, observed_symptoms)
+    
     print("\nGenerating Doctor Report:\n")
-
-    report = generate_doctor_report(probabilities, observed_symptoms)
+    report = generate_doctor_report(probabilities, observed_symptoms, diagnosis_options)
     print(report)
-    run_diagnostic_system(file_path, observed_symptoms)
+    
+    # Full pipeline run example
+    full_report = run_diagnostic_system(file_path, observed_symptoms)
+    print("\nFull Pipeline Report:\n")
+    print(full_report)
     
 
 if __name__ == "__main__":
