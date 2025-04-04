@@ -1,300 +1,490 @@
-"""
-TreatmentFlow
-Bayesian Networks - Disease Diagnostics from Triage Inputs
-
-By Adam Neto and Emese Elkind
-Started: February 2025
-
-CISC 352: Artificial Intelligence
-"""
-
-# this file is an implementation of Bayes' Nets used to generate disease probability documents for doctors
-
-import csv
-import numpy as np
 import pandas as pd
-from pgmpy.models import BayesianNetwork
-from pgmpy.factors.discrete import TabularCPD
-from pgmpy.estimators import MaximumLikelihoodEstimator
-from pgmpy.inference import VariableElimination
-from collections import defaultdict
+import numpy as np
+import pymc3 as pm
+import arviz as az
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 
-def data_preprocessing(file_path):
-    diagnostics = []
-    with open(file_path) as symptom_info:
-        reader = csv.reader(symptom_info)
-        for row in reader:
-            diagnostics.append(row)
-
-    diagnoses = [row[-1] for row in diagnostics[1:]] # list of possible diagnoses
-    diagnosis_options = []  # list of each possible diagnosis (without duplicates)
-
-    i = 0
-    while i < len(diagnoses):
-        if diagnoses[i] not in diagnosis_options:
-            diagnosis_options.append(diagnoses[i])
-        i += 1
-
-    symptoms = diagnostics[0][:-1] # list of all symptom variables
-    symptom_bools = [row[:-1] for row in diagnostics[1:]]   # 2d array of booleans referring to symptoms
-
-    # goal with CPTs: get the conditional probabilities of each diagnosis given symptoms
-
-    # print(len(diagnoses))
-    print(diagnosis_options)
-    print(len(diagnosis_options))
-    # print(len(symptoms))
-    # print(len(symptom_bools[0]))
-    
-    # Convert the data to a pandas DataFrame for easier handling
-    data = []
-    for i, symptom_row in enumerate(symptom_bools):
-        row_data = {}
-        for j, symptom in enumerate(symptoms):
-            # Convert string boolean to integer (0 or 1)
-            row_data[symptom] = 1 if symptom_row[j].lower() in ['true', '1', 't', 'yes', 'y'] else 0
-        row_data['diagnosis'] = diagnoses[i]
-        data.append(row_data)
-    
-    df = pd.DataFrame(data)
-    
-    # Clean column names (remove spaces, special chars)
-    df.columns = [col.strip().replace(' ', '_').replace('(', '').replace(')', '').lower() for col in df.columns]
-    symptoms = [symptom.strip().replace(' ', '_').replace('(', '').replace(')', '').lower() for symptom in symptoms]
-    
-    return df, symptoms, diagnosis_options
-
-# Step 2: Define the Bayesian Network structure
-def create_bayesian_network(df):
+def load_and_preprocess_data(filepath, symptom_cols=None):
     """
-    Create a naive Bayesian network using the diagnostics file information
-    """
-    # Define edges: diagnosis -> each symptom
-    edges = [('diagnosis', symptom) for symptom in symptoms]
-    
-    # Create Bayesian Network with defined edges
-    model = BayesianNetwork(edges)
-    
-    print(f"Created Bayesian Network with {len(edges)} edges")
-    return model
-
-
-# Step 3: Train the Bayesian Network
-def train_model(model, df):
-    """
-    Train the Bayesian Network using Maximum Likelihood or Bayesian estimation.
-    MaximumLikelihoodEstimator from pgmpy.estimators import MaximumLikelihoodEstimator
-    """
-    # Use Maximum Likelihood Estimator to estimate the CPDs
-    estimator = MaximumLikelihoodEstimator(model, df)
-    
-    # Initialize CPDs for each node
-    for node in model.nodes():
-        print(f"Estimating CPD for {node}")
-        cpd = estimator.estimate_cpd(node)
-        model.add_cpds(cpd)
-    
-    # Check if the model is valid
-    if model.check_model():
-        print("Model is valid and trained successfully")
-    else:
-        print("Error: Model is not valid")
-    
-    return model
-
-
-# Step 4: Create an inference engine
-def create_inference_engine(model):
-    """
-    Create an inference engine for the Bayesian Network.
-    posterior probabilistic inference
-    VariableElimination
-    """
-    inference_engine = VariableElimination(model)
-    return inference_engine
-
-
-# Step 5: Generate diagnosis probabilities
-def generate_diagnosis_probabilities(inference_engine, symptoms, evidence):
-    """
-    Generate probabilities for possible diagnoses given observed symptoms.
+    Load triage data and preprocess it for Bayesian network analysis.
     
     Parameters:
-    inference_engine: The inference engine
-    symptoms: List of all symptom variables
-    evidence: Dictionary of observed symptoms {symptom_name: value (0 or 1)}
+    filepath (str): Path to the CSV file containing triage data
+    symptom_cols (list): List of symptom column names to consider. If None, all columns will be used.
     
     Returns:
-    DataFrame with diagnosis probabilities
+    pd.DataFrame: Preprocessed dataframe
     """
-    evidence_dict = {}
-    for symptom, value in evidence.items():
-        if symptom in symptoms:
-            evidence_dict[symptom] = value
-    query_result = inference_engine.query(variables=['diagnosis'], evidence=evidence_dict)
+    # Load the data
+    triage_data = pd.read_csv(filepath)
+    
+    # If no specific symptom columns are provided, use all except ID and target columns
+    if symptom_cols is None:
+        # Assuming the last column is the diagnosis and first column might be ID
+        symptom_cols = triage_data.columns[1:-1]
+    
+    # Extract only the needed columns
+    df = triage_data[list(symptom_cols) + ['diagnosis']]
+    
+    # Handle missing values
+    df = df.fillna(0)
+    
+    # Ensure all symptom values are binary (0 or 1)
+    for col in symptom_cols:
+        df[col] = df[col].astype(int).clip(0, 1)
+    
+    return df
+
+def create_symptom_indices(df, diagnosis_col='diagnosis'):
+    """
+    Create dictionaries mapping symptoms to indices and diagnoses to indices.
+    
+    Parameters:
+    df (pd.DataFrame): Preprocessed triage data
+    diagnosis_col (str): Name of the diagnosis column
+    
+    Returns:
+    tuple: (symptom_to_idx, idx_to_symptom, diagnosis_to_idx, idx_to_diagnosis)
+    """
+    symptom_cols = [col for col in df.columns if col != diagnosis_col]
+    
+    # Create mappings
+    symptom_to_idx = {symptom: i for i, symptom in enumerate(symptom_cols)}
+    idx_to_symptom = {i: symptom for symptom, i in symptom_to_idx.items()}
+    
+    # Create diagnosis mappings
+    unique_diagnoses = df[diagnosis_col].unique()
+    diagnosis_to_idx = {diagnosis: i for i, diagnosis in enumerate(unique_diagnoses)}
+    idx_to_diagnosis = {i: diagnosis for diagnosis, i in diagnosis_to_idx.items()}
+    
+    return symptom_to_idx, idx_to_symptom, diagnosis_to_idx, idx_to_diagnosis
+
+def split_data(df, test_size=0.2, random_state=42, diagnosis_col='diagnosis'):
+    """
+    Split data into training and testing sets.
+    
+    Parameters:
+    df (pd.DataFrame): Preprocessed triage data
+    test_size (float): Proportion of data to use for testing
+    random_state (int): Random seed for reproducibility
+    diagnosis_col (str): Name of the diagnosis column
+    
+    Returns:
+    tuple: (X_train, X_test, y_train, y_test)
+    """
+    X = df.drop(columns=[diagnosis_col])
+    y = df[diagnosis_col]
+    
+    return train_test_split(X, y, test_size=test_size, random_state=random_state)
+
+def build_bayesian_network(X_train, y_train, symptom_to_idx, diagnosis_to_idx):
+    """
+    Build a Bayesian Network using PyMC3 for disease diagnosis.
+    
+    Parameters:
+    X_train (pd.DataFrame): Training features (symptoms)
+    y_train (pd.Series): Training labels (diagnoses)
+    symptom_to_idx (dict): Mapping from symptom names to indices
+    diagnosis_to_idx (dict): Mapping from diagnosis names to indices
+    
+    Returns:
+    tuple: (trace, model)
+    """
+    n_symptoms = len(symptom_to_idx)
+    n_diagnoses = len(diagnosis_to_idx)
+    
+    # Convert diagnoses to numerical indices
+    y_train_idx = y_train.map(diagnosis_to_idx)
+    
+    with pm.Model() as model:
+        # Prior probabilities for each diagnosis
+        diagnosis_prior = pm.Dirichlet('diagnosis_prior', 
+                                       a=np.ones(n_diagnoses),
+                                       shape=(n_diagnoses,))
         
-    # Convert the results to a pandas DataFrame
-    probs = query_result.values
-    states = query_result.state_names['diagnosis']
+        # Conditional probability of each symptom given each diagnosis
+        symptom_given_diagnosis = pm.Beta('symptom_given_diagnosis',
+                                          alpha=1, beta=1,
+                                          shape=(n_diagnoses, n_symptoms))
+        
+        # For each patient in the training set
+        for i, (_, symptoms) in enumerate(X_train.iterrows()):
+            # The diagnosis for this patient
+            diagnosis = pm.Categorical(f'diagnosis_{i}', 
+                                       p=diagnosis_prior, 
+                                       observed=y_train_idx.iloc[i])
+            
+            # For each symptom
+            for symptom_name, has_symptom in symptoms.items():
+                symptom_idx = symptom_to_idx[symptom_name]
+                
+                # Likelihood of observing this symptom given the diagnosis
+                pm.Bernoulli(f'symptom_{i}_{symptom_name}',
+                             p=symptom_given_diagnosis[diagnosis, symptom_idx],
+                             observed=has_symptom)
+        
+        # Sample from the posterior distribution
+        trace = pm.sample(1000, tune=1000, cores=1, return_inferencedata=True)
     
-    # Create a DataFrame with diagnoses and their probabilities
-    probabilities_df = pd.DataFrame({
-        'diagnosis': states,
-        'probability': probs
-    })
-    
-    # Sort by probability in descending order
-    probabilities_df = probabilities_df.sort_values(by='probability', ascending=False).reset_index(drop=True)
-    
-    return probabilities_df
+    return trace, model
 
-
-# Step 6: Generate a comprehensive report for doctors
-def generate_doctor_report(probabilities, evidence, df):
+def predict_diagnosis(X_test, trace, symptom_to_idx, idx_to_diagnosis):
     """
-    Generate a comprehensive report for doctors with diagnosis probabilities
-    and relevant symptom information.
+    Predict diagnoses for test data using the trained Bayesian Network.
     
     Parameters:
-    probabilities: DataFrame with diagnosis probabilities
-    evidence: Dictionary of observed symptoms
-    df: Original dataframe with all data
+    X_test (pd.DataFrame): Test features (symptoms)
+    trace (pm.MultiTrace): Samples from the posterior distribution
+    symptom_to_idx (dict): Mapping from symptom names to indices
+    idx_to_diagnosis (dict): Mapping from diagnosis indices to names
     
     Returns:
-    Report as a string
+    tuple: (predicted_diagnoses, diagnosis_probabilities)
     """
-    top_n = min(10, len(probabilities))
-    top_diagnoses = probabilities.head(top_n)
+    n_diagnoses = len(idx_to_diagnosis)
+    n_samples = len(trace.posterior['diagnosis_prior'][0])
     
-    # Format the observed symptoms
-    observed_symptoms_str = "\n".join([f"- {symptom}: {'Present' if value == 1 else 'Absent'}" 
-                                      for symptom, value in evidence.items()])
+    # Get posterior samples of parameters
+    diagnosis_prior_samples = trace.posterior['diagnosis_prior'].values.mean(axis=(0, 1))
+    symptom_given_diagnosis_samples = trace.posterior['symptom_given_diagnosis'].values.mean(axis=(0, 1))
     
-    # Create the report
-    report = f"""
-    DIAGNOSIS PROBABILITY REPORT
-    ===========================
+    predicted_diagnoses = []
+    diagnosis_probabilities = []
     
-    OBSERVED SYMPTOMS:
-    {observed_symptoms_str}
+    # For each patient in the test set
+    for _, symptoms in X_test.iterrows():
+        # Initialize probabilities
+        probs = diagnosis_prior_samples.copy()
+        
+        # Update probabilities based on observed symptoms
+        for symptom_name, has_symptom in symptoms.items():
+            symptom_idx = symptom_to_idx[symptom_name]
+            
+            for d in range(n_diagnoses):
+                # P(symptom | diagnosis) if the patient has the symptom
+                p_symptom_given_d = symptom_given_diagnosis_samples[d, symptom_idx]
+                
+                if has_symptom:
+                    probs[d] *= p_symptom_given_d
+                else:
+                    probs[d] *= (1 - p_symptom_given_d)
+        
+        # Normalize probabilities
+        probs = probs / probs.sum() if probs.sum() > 0 else probs
+        
+        # Store results
+        predicted_diagnosis = idx_to_diagnosis[np.argmax(probs)]
+        predicted_diagnoses.append(predicted_diagnosis)
+        diagnosis_probabilities.append(probs)
     
-    TOP {top_n} PROBABLE DIAGNOSES:
-    """
-    
-    # Add each diagnosis with its probability
-    for idx, row in top_diagnoses.iterrows():
-        diagnosis = row['diagnosis']
-        probability = row['probability']
-        report += f"\n{idx+1}. {diagnosis}: {probability:.4f} ({probability*100:.2f}%)"
-    
-    # Add recommendations
-    report += f"""
-    
-    RECOMMENDATION:
-    Further investigation is recommended for the top diagnoses, especially {top_diagnoses.iloc[0]['diagnosis']}
-    with a probability of {top_diagnoses.iloc[0]['probability']*100:.2f}%.
-    
-    DISCLAIMER:
-    This report is generated by an AI diagnostic system and should be used as a supportive tool only.
-    Clinical judgment by a medical doctor is required for final diagnosis and treatment decisions.
-    """
-    
-    return report
+    return predicted_diagnoses, diagnosis_probabilities
 
-
-# Main function to run the entire pipeline
-def run_diagnostic_system(file_path, observed_symptoms):
+def generate_diagnosis_report(patient_symptoms, diagnosis_probs, idx_to_diagnosis, idx_to_symptom, threshold=0.1):
     """
-    Run the entire diagnostic system pipeline.
+    Generate a diagnosis probability report for a doctor.
     
     Parameters:
-    file_path: Path to the dataset file
-    observed_symptoms: List of observed symptoms as strings
+    patient_symptoms (pd.Series): Patient's symptoms
+    diagnosis_probs (np.ndarray): Probability of each diagnosis
+    idx_to_diagnosis (dict): Mapping from diagnosis indices to names
+    idx_to_symptom (dict): Mapping from symptom indices to names
+    threshold (float): Probability threshold to include in the report
     
     Returns:
-    Diagnosis report
+    dict: Report containing diagnosis probabilities and supporting evidence
     """
-    print("Starting diagnostic system...")
-    
-    # Step 1: Preprocess the data
-    df, symptoms, diagnosis_options = data_preprocessing(file_path)
-    
-    # Step 2: Create the Bayesian Network
-    model = create_bayesian_network(df, symptoms)
-    
-    # Step 3: Train the model
-    trained_model = train_model(model, df)
-    
-    # Step 4: Create the inference engine
-    inference_engine = create_inference_engine(trained_model)
-    
-    # Step 5: Generate diagnosis probabilities
-    probabilities = generate_diagnosis_probabilities(inference_engine, symptoms, observed_symptoms)
-    
-    # Step 6: Generate doctor report
-    report = generate_doctor_report(probabilities, observed_symptoms, diagnosis_options)
-    
-    return report
-
-
-# for each possible diagnosis, we want:
-    # P(Di | S1, S2, ..., Sn)
-
-
-# goal for Bayes Net: make every independent pair of symptoms siblings, rather than parents/children
-    # X and Y are independent if
-        # for all x, y: P(x,y) = P(x) * P(y) = P(x) * P(y|x)
-        # for all x, y: P(x|y) = P(x)
-    # conditional independence of X and Y, given Z
-        # for all x, y, z: P(x, y|z) = P(x|z) * P(y|z)
-        # for all x, y, z: P(x|z, y) = P(x|z)     
-
-    # each node in the BN refers to a probability table
-        # if node A has parents X and Y, A refers to the probability table P(A | X,Y)
-            # P(xi | x1, ..., x_(i-1)) = P(xi | parents(Xi)
-
-    # bayes net should allow us to output the posterior probability of a diagnosis D given some observed evidence S
-        # P(D|S) = (P(S|D) * P(D)) / P(S)
-        # display the ~10 most probable diagnoses given a set of evidence (boolean symptom values)
-
-
-def main():
-    print("\nData Preprocessing:\n")
-    file_path = "BayesNets/symbipredict_2022.csv"
-    df, symptoms, diagnosis_options = data_preprocessing(file_path)
-    
-    print("\nBayesian Network Creation:\n")
-    model = create_bayesian_network(df, symptoms)
-    
-    print("\nTraining the Bayesian Network:\n")
-    trained_model = train_model(model, df)
-    
-    print("\nCreating the Inference Engine:\n")
-    inference_engine = create_inference_engine(trained_model)
-    
-    print("\nGenerating Diagnosis Probabilities:\n")
-    
-    # Example of observed symptoms - this would typically come from user input
-    # Format: {symptom_name: value} where value is 1 for present, 0 for absent
-    observed_symptoms = {
-        'fever': 1,
-        'cough': 1,
-        'shortness_of_breath': 0,
-        'fatigue': 1,
-        'headache': 1
+    report = {
+        "patient_symptoms": {symptom: (1 if value else 0) for symptom, value in patient_symptoms.items()},
+        "diagnosis_probabilities": [],
+        "timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     
-    probabilities = generate_diagnosis_probabilities(inference_engine, symptoms, observed_symptoms)
+    # Sort diagnoses by probability
+    sorted_indices = np.argsort(diagnosis_probs)[::-1]
     
-    print("\nGenerating Doctor Report:\n")
-    report = generate_doctor_report(probabilities, observed_symptoms, diagnosis_options)
-    print(report)
+    # Include diagnoses above threshold
+    for idx in sorted_indices:
+        prob = diagnosis_probs[idx]
+        if prob >= threshold:
+            diagnosis_name = idx_to_diagnosis[idx]
+            report["diagnosis_probabilities"].append({
+                "diagnosis": diagnosis_name,
+                "probability": float(prob),
+                "confidence": "High" if prob > 0.7 else "Medium" if prob > 0.4 else "Low"
+            })
     
-    # Full pipeline run example
-    full_report = run_diagnostic_system(file_path, observed_symptoms)
-    print("\nFull Pipeline Report:\n")
-    print(full_report)
+    return report
+
+def evaluate_model(y_test, predicted_diagnoses):
+    """
+    Evaluate the performance of the Bayesian Network model.
     
+    Parameters:
+    y_test (pd.Series): True diagnoses
+    predicted_diagnoses (list): Predicted diagnoses
+    
+    Returns:
+    dict: Dictionary with evaluation metrics
+    """
+    accuracy = accuracy_score(y_test, predicted_diagnoses)
+    report = classification_report(y_test, predicted_diagnoses, output_dict=True)
+    
+    evaluation = {
+        "accuracy": accuracy,
+        "classification_report": report
+    }
+    
+    return evaluation
+
+def visualize_symptom_relationships(trace, idx_to_symptom, idx_to_diagnosis):
+    """
+    Visualize relationships between symptoms and diagnoses.
+    
+    Parameters:
+    trace (pm.MultiTrace): Samples from the posterior distribution
+    idx_to_symptom (dict): Mapping from symptom indices to names
+    idx_to_diagnosis (dict): Mapping from diagnosis indices to names
+    """
+    # Get the mean symptom probabilities given each diagnosis
+    symptom_given_diagnosis = trace.posterior['symptom_given_diagnosis'].values.mean(axis=(0, 1))
+    
+    plt.figure(figsize=(14, 10))
+    
+    # Plot heatmap of symptom probabilities given each diagnosis
+    plt.imshow(symptom_given_diagnosis, aspect='auto', cmap='viridis')
+    plt.colorbar(label='P(Symptom | Diagnosis)')
+    
+    # Label the axes
+    plt.xlabel('Symptoms')
+    plt.ylabel('Diagnoses')
+    plt.xticks(range(len(idx_to_symptom)), list(idx_to_symptom.values()), rotation=90)
+    plt.yticks(range(len(idx_to_diagnosis)), list(idx_to_diagnosis.values()))
+    
+    plt.title('Symptom-Diagnosis Relationship Heatmap')
+    plt.tight_layout()
+    plt.savefig('symptom_diagnosis_heatmap.png')
+    plt.close()
+
+def save_diagnosis_probabilities(df, diagnosis_probabilities, idx_to_diagnosis, output_file='diagnosis_probabilities.csv'):
+    """
+    Save diagnosis probabilities for all patients to a CSV file.
+    
+    Parameters:
+    df (pd.DataFrame): Original dataframe with patient data
+    diagnosis_probabilities (list): List of arrays with diagnosis probabilities
+    idx_to_diagnosis (dict): Mapping from diagnosis indices to names
+    output_file (str): Path to save the CSV file
+    """
+    # Create a dataframe with diagnosis probabilities
+    probs_df = pd.DataFrame(index=df.index)
+    
+    # Add each diagnosis as a column
+    for d_idx, d_name in idx_to_diagnosis.items():
+        probs_df[f"{d_name}_probability"] = [probs[d_idx] for probs in diagnosis_probabilities]
+    
+    # Add the original data
+    result_df = pd.concat([df, probs_df], axis=1)
+    
+    # Save to CSV
+    result_df.to_csv(output_file, index=False)
+    print(f"Diagnosis probabilities saved to {output_file}")
+
+def apply_treatment_guidelines(diagnosis, severity):
+    """
+    Apply treatment guidelines based on diagnosis and severity.
+    
+    Parameters:
+    diagnosis (str): The diagnosed condition
+    severity (str): Severity level (Mild, Moderate, Severe)
+    
+    Returns:
+    dict: Treatment guidelines
+    """
+    # This is a simplified version - in practice, would connect to a medical guidelines database
+    treatment_map = {
+        "Pneumonia": {
+            "Mild": ["Oral antibiotics", "Rest", "Hydration"],
+            "Moderate": ["IV antibiotics", "Oxygen therapy", "Hospitalization"],
+            "Severe": ["Broad-spectrum IV antibiotics", "ICU monitoring", "Ventilation if needed"]
+        },
+        "Influenza": {
+            "Mild": ["Antiviral medication", "Rest", "Hydration"],
+            "Moderate": ["Antiviral medication", "Symptom management", "Close monitoring"],
+            "Severe": ["Hospitalization", "IV antivirals", "Respiratory support"]
+        },
+        # Add more conditions as needed
+        "Default": {
+            "Mild": ["Symptomatic treatment", "Follow-up in 3 days"],
+            "Moderate": ["Close monitoring", "Targeted therapy", "Follow-up in 2 days"],
+            "Severe": ["Immediate specialist consultation", "Hospitalization consideration"]
+        }
+    }
+    
+    # Get treatment guidelines
+    if diagnosis in treatment_map:
+        return {
+            "diagnosis": diagnosis,
+            "severity": severity,
+            "recommended_treatments": treatment_map[diagnosis].get(severity, treatment_map["Default"][severity]),
+            "followup_time": "24 hours" if severity == "Severe" else "72 hours" if severity == "Moderate" else "1 week"
+        }
+    else:
+        return {
+            "diagnosis": diagnosis,
+            "severity": severity,
+            "recommended_treatments": treatment_map["Default"][severity],
+            "followup_time": "48 hours" if severity in ["Moderate", "Severe"] else "1 week"
+        }
+
+def determine_severity(patient_data, diagnosis):
+    """
+    Determine the severity of a condition based on patient data.
+    
+    Parameters:
+    patient_data (dict): Patient's data including vital signs
+    diagnosis (str): The diagnosed condition
+    
+    Returns:
+    str: Severity level (Mild, Moderate, Severe)
+    """
+    # This is a simplified version - in practice, would use more complex criteria
+    severity_points = 0
+    
+    # Check vital signs if available
+    if "vitals" in patient_data:
+        vitals = patient_data["vitals"]
+        
+        # High fever
+        if vitals.get("temperature", 37) > 39:
+            severity_points += 2
+        elif vitals.get("temperature", 37) > 38:
+            severity_points += 1
+        
+        # Abnormal heart rate
+        if vitals.get("heart_rate", 70) > 120 or vitals.get("heart_rate", 70) < 50:
+            severity_points += 2
+        elif vitals.get("heart_rate", 70) > 100 or vitals.get("heart_rate", 70) < 60:
+            severity_points += 1
+        
+        # Low oxygen saturation
+        if vitals.get("oxygen_saturation", 98) < 90:
+            severity_points += 3
+        elif vitals.get("oxygen_saturation", 98) < 94:
+            severity_points += 1
+        
+        # Abnormal blood pressure
+        if vitals.get("systolic_bp", 120) > 180 or vitals.get("systolic_bp", 120) < 90:
+            severity_points += 2
+    
+    # Check risk factors
+    risk_factors = patient_data.get("risk_factors", [])
+    severity_points += len(risk_factors)
+    
+    # Check symptom duration
+    if patient_data.get("symptom_duration", 0) > 7:
+        severity_points += 1
+    
+    # Determine severity level
+    if severity_points >= 5:
+        return "Severe"
+    elif severity_points >= 2:
+        return "Moderate"
+    else:
+        return "Mild"
+
+def main(triage_data_path, symptom_cols=None):
+    """
+    Main function to run the entire pipeline.
+    
+    Parameters:
+    triage_data_path (str): Path to the triage data CSV file
+    symptom_cols (list): List of symptom column names to consider
+    
+    Returns:
+    tuple: (evaluation, model, trace)
+    """
+    # Load and preprocess data
+    df = load_and_preprocess_data(triage_data_path, symptom_cols)
+    
+    # Create indices
+    symptom_to_idx, idx_to_symptom, diagnosis_to_idx, idx_to_diagnosis = create_symptom_indices(df)
+    
+    # Split data
+    X_train, X_test, y_train, y_test = split_data(df)
+    
+    # Build Bayesian Network
+    print("Building Bayesian Network...")
+    trace, model = build_bayesian_network(X_train, y_train, symptom_to_idx, diagnosis_to_idx)
+    
+    # Predict diagnoses for test set
+    print("Predicting diagnoses...")
+    predicted_diagnoses, diagnosis_probabilities = predict_diagnosis(
+        X_test, trace, symptom_to_idx, idx_to_diagnosis
+    )
+    
+    # Evaluate model
+    print("Evaluating model...")
+    evaluation = evaluate_model(y_test, predicted_diagnoses)
+    print(f"Accuracy: {evaluation['accuracy']:.4f}")
+    
+    # Visualize symptom relationships
+    print("Visualizing symptom relationships...")
+    visualize_symptom_relationships(trace, idx_to_symptom, idx_to_diagnosis)
+    
+    # Save diagnosis probabilities
+    save_diagnosis_probabilities(X_test, diagnosis_probabilities, idx_to_diagnosis)
+    
+    # Generate a sample report for the first test patient
+    sample_patient = X_test.iloc[0]
+    sample_probs = diagnosis_probabilities[0]
+    report = generate_diagnosis_report(sample_patient, sample_probs, idx_to_diagnosis, idx_to_symptom)
+    
+    # Determine severity and apply treatment guidelines
+    sample_patient_data = {
+        "vitals": {
+            "temperature": 38.5,
+            "heart_rate": 95,
+            "oxygen_saturation": 96,
+            "systolic_bp": 130
+        },
+        "risk_factors": ["diabetes"],
+        "symptom_duration": 3
+    }
+    severity = determine_severity(sample_patient_data, predicted_diagnoses[0])
+    treatment = apply_treatment_guidelines(predicted_diagnoses[0], severity)
+    
+    print("\nSample Diagnosis Report:")
+    print(f"Diagnosis: {predicted_diagnoses[0]}")
+    print(f"Severity: {severity}")
+    print(f"Recommended treatments: {', '.join(treatment['recommended_treatments'])}")
+    print(f"Follow-up time: {treatment['followup_time']}")
+    
+    return evaluation, model, trace
 
 if __name__ == "__main__":
-    main()
+    # Example usage
+    print("TreatmentFlow: Bayesian Networks for Disease Diagnostics")
+    print("-------------------------------------------------------")
+    
+    # Define symptom columns (these would be actual columns from your data)
+    example_symptoms = [
+        "fever", "cough", "shortness_of_breath", "fatigue", 
+        "headache", "sore_throat", "body_aches", "runny_nose",
+        "nausea", "vomiting", "diarrhea", "loss_of_taste",
+        "chest_pain", "abdominal_pain"
+    ]
+    
+    # Run the main function with the triage data
+    # Replace 'triage_data.csv' with actual data path
+    print("Note: Replace 'triage_data.csv' with your actual triage data file path.")
+    print("Loading sample data...")
+    
+    try:
+        evaluation, model, trace = main("triage_data.csv", example_symptoms)
+        print("\nProcessing complete!")
+    except FileNotFoundError:
+        print("\nError: Triage data file not found.")
+        print("Please provide a valid file path to your triage data CSV file.")
+        print("The CSV should contain columns for symptoms and a 'diagnosis' column.")

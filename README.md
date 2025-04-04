@@ -45,3 +45,6 @@ pip install seaborn
 python -m pip install scikit-learn
 
 ```
+```
+pip install pymc3
+```
