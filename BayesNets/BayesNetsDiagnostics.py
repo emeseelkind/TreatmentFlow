@@ -110,7 +110,8 @@ def create_inference_engine(model):
     posterior probabilistic inference
     VariableElimination
     """
-    pass
+    inference_engine = VariableElimination(model)
+    return inference_engine
 
 
 # Step 5: Generate diagnosis probabilities
