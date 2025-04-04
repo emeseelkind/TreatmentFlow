@@ -69,7 +69,14 @@ def create_bayesian_network(df):
     """
     Create a naive Bayesian network using the diagnostics file information
     """
-    pass
+    # Define edges: diagnosis -> each symptom
+    edges = [('diagnosis', symptom) for symptom in symptoms]
+    
+    # Create Bayesian Network with defined edges
+    model = BayesianNetwork(edges)
+    
+    print(f"Created Bayesian Network with {len(edges)} edges")
+    return model
 
 
 # Step 3: Train the Bayesian Network
