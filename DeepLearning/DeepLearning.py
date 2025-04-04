@@ -62,16 +62,16 @@ def load_data(directory):
                 print(f"Warning: 'esi' column not found in {filename}, skipping file.")
     
     print(f"\nCombined dataset shape: {combined_df.shape}")
-    print("\nESI (Priority) Distribution in combined data:")
+    print("\nCTAS (Priority) Distribution in combined data:")
     print(combined_df['esi'].value_counts().sort_index())
     combined_df = combined_df.reset_index(drop=True)
 
     plt.figure(figsize=(10, 6))
     sns.countplot(x='esi', data=combined_df)
-    plt.title('Distribution of ESI (Emergency Severity Index)')
-    plt.xlabel('ESI Score (1 = highest priority, 5 = lowest priority)')
+    plt.title('Distribution of CTAS (Canadian Triage and Acuity Scale)')
+    plt.xlabel('CTAS  Score (1 = highest priority, 5 = lowest priority)')
     plt.ylabel('Number of Patients')
-    plt.savefig('esi_distribution.png')
+    plt.savefig('DeepLearning/CTAS_distribution.png')
     plt.close()
     return combined_df
 
@@ -190,14 +190,14 @@ def evaluate_model(model, start_time, x_test, y_test):
     plt.figure(figsize=(10, 8))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[1, 2, 3, 4, 5], yticklabels=[1, 2, 3, 4, 5])
     plt.title('Confusion Matrix for Patient Priority Prediction')
-    plt.ylabel('Actual Priority (ESI)')
-    plt.xlabel('Predicted Priority (ESI)')
+    plt.ylabel('Actual Priority (CTAS)')
+    plt.xlabel('Predicted Priority (CTAS)')
     plt.savefig('DeepLearning/confusion_matrix.png')
     plt.close()
     print("\nConfusion matrix saved as 'confusion_matrix.png'")
 
     # Save the model
-    joblib.dump(model, 'patient_priority_model.pkl')
+    joblib.dump(model, 'DeepLearning/patient_priority_model.pkl')
     print("\nModel saved as patient_priority_model.pkl")
 
     # Print the total time taken
