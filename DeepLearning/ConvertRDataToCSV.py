@@ -1,16 +1,18 @@
-# Import necessary libraries
 import pandas as pd
 import pyreadr
 import os
 
 # Specify the path to your .rdata file
 rdata_file = 'C:/Users/emese/Desktop/TreatmentFlow-1/5v_cleandf.rdata'
-# csv_file = 'hospital_triage_patient_data.csv'  # Output CSV file name
+output_folder = 'C:/Users/emese/Desktop/TreatmentFlow/CTAS_files'
 
 # Check if the file exists
 if not os.path.exists(rdata_file):
     print(f"File not found: {rdata_file}")
     exit()
+
+# Create output directory if it doesn't exist
+os.makedirs(output_folder, exist_ok=True)
 
 # Load the .rdata file
 result = pyreadr.read_r(rdata_file)
@@ -31,16 +33,9 @@ if df is None:
 print("First 5 rows of the DataFrame:")
 print(df.head())
 
-# file is too bit so we extract every 5th row
-# Extract every other row (start at index 0 and step by 2)
-every_other_row = df.iloc[::75]
-
-# Specify the output file path
-output_file_path = 'C:/Users/emese/Desktop/TreatmentFlow/new_hospital_data_75.csv'
-
-# Save the result to a new CSV file
-every_other_row.to_csv(output_file_path, index=False)
-
-# Save to CSV
-# df.to_csv(csv_file, index=False)
-print(f"DataFrame saved as {output_file_path}")
+# Generate five different hospital data files with different starting indices
+for i in range(10):
+    sampled_df = df.iloc[i::75]  # Select every 75th row starting at index i
+    output_file_path = os.path.join(output_folder, f'hospital_data_{i+1}.csv')
+    sampled_df.to_csv(output_file_path, index=False)
+    print(f"DataFrame saved as {output_file_path}")
