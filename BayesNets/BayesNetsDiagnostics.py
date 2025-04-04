@@ -85,7 +85,22 @@ def train_model(model, df):
     Train the Bayesian Network using Maximum Likelihood or Bayesian estimation.
     MaximumLikelihoodEstimator from pgmpy.estimators import MaximumLikelihoodEstimator
     """
-    pass
+    # Use Maximum Likelihood Estimator to estimate the CPDs
+    estimator = MaximumLikelihoodEstimator(model, df)
+    
+    # Initialize CPDs for each node
+    for node in model.nodes():
+        print(f"Estimating CPD for {node}")
+        cpd = estimator.estimate_cpd(node)
+        model.add_cpds(cpd)
+    
+    # Check if the model is valid
+    if model.check_model():
+        print("Model is valid and trained successfully")
+    else:
+        print("Error: Model is not valid")
+    
+    return model
 
 
 # Step 4: Create an inference engine
