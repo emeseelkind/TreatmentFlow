@@ -127,7 +127,26 @@ def generate_diagnosis_probabilities(inference_engine, symptoms, evidence):
     Returns:
     DataFrame with diagnosis probabilities
     """
-    pass
+    evidence_dict = {}
+    for symptom, value in evidence.items():
+        if symptom in symptoms:
+            evidence_dict[symptom] = value
+    query_result = inference_engine.query(variables=['diagnosis'], evidence=evidence_dict)
+        
+    # Convert the results to a pandas DataFrame
+    probs = query_result.values
+    states = query_result.state_names['diagnosis']
+    
+    # Create a DataFrame with diagnoses and their probabilities
+    probabilities_df = pd.DataFrame({
+        'diagnosis': states,
+        'probability': probs
+    })
+    
+    # Sort by probability in descending order
+    probabilities_df = probabilities_df.sort_values(by='probability', ascending=False).reset_index(drop=True)
+    
+    return probabilities_df
 
 
 # Step 6: Generate a comprehensive report for doctors
