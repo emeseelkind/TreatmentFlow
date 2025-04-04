@@ -1,16 +1,6 @@
 """
-TreatmentFlow
-Deep Learning: Patient Priority Prediction
-
-Automate assignment of patient priority (1-5) using Triage information 
-Training based on 500k+ observation dataset of triage information associated with patient priority
-
-By Adam Neto and Emese Elkind
-Started: February 2025
-
-CISC 352: Artificial Intelligence
-
-DNN (Deep Neural Network) supervised classification model for patient triage and diagnosis prediction
+V1 - old version
+accuracy 62%
 """
 
 """
