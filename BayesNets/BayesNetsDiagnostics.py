@@ -11,8 +11,15 @@ CISC 352: Artificial Intelligence
 # this file is an implementation of Bayes' Nets used to generate disease probability documents for doctors
 
 import csv
+import numpy as np
+import pandas as pd
+from pgmpy.models import BayesianNetwork
+from pgmpy.factors.discrete import TabularCPD
+from pgmpy.estimators import MaximumLikelihoodEstimator
+from pgmpy.inference import VariableElimination
+from collections import defaultdict
+
 def data_preprocessing(file_path):
-    # importing symptom data file
     diagnostics = []
     with open(file_path) as symptom_info:
         reader = csv.reader(symptom_info)
@@ -38,13 +45,24 @@ def data_preprocessing(file_path):
     print(len(diagnosis_options))
     # print(len(symptoms))
     # print(len(symptom_bools[0]))
-
-
-    # Clean column names (remove spaces, special chars)
-    # df.columns = [col.strip().replace(' ', '_').replace('(', '').replace(')', '').lower() for col in df.columns]
     
-    return diagnoses, diagnosis_options, symptoms, symptom_bools
-
+    # Convert the data to a pandas DataFrame for easier handling
+    data = []
+    for i, symptom_row in enumerate(symptom_bools):
+        row_data = {}
+        for j, symptom in enumerate(symptoms):
+            # Convert string boolean to integer (0 or 1)
+            row_data[symptom] = 1 if symptom_row[j].lower() in ['true', '1', 't', 'yes', 'y'] else 0
+        row_data['diagnosis'] = diagnoses[i]
+        data.append(row_data)
+    
+    df = pd.DataFrame(data)
+    
+    # Clean column names (remove spaces, special chars)
+    df.columns = [col.strip().replace(' ', '_').replace('(', '').replace(')', '').lower() for col in df.columns]
+    symptoms = [symptom.strip().replace(' ', '_').replace('(', '').replace(')', '').lower() for symptom in symptoms]
+    
+    return df, symptoms, diagnosis_options
 
 # Step 2: Define the Bayesian Network structure
 def create_bayesian_network(df):
