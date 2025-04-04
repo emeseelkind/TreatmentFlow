@@ -34,7 +34,7 @@ print("First 5 rows of the DataFrame:")
 print(df.head())
 
 # Generate five different hospital data files with different starting indices
-for i in range(5):
+for i in range(10):
     sampled_df = df.iloc[i::75]  # Select every 75th row starting at index i
     output_file_path = os.path.join(output_folder, f'hospital_data_{i+1}.csv')
     sampled_df.to_csv(output_file_path, index=False)
