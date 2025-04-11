@@ -225,8 +225,8 @@ class Menu:
 
                     # ** final product should allow users to perform triage survey
                 case 2:
-                    num_beds = self.select_int("Number of beds", 1, 1000)
-                    self.patient_data.update_hospital(num_beds)
+                    self.num_beds = self.select_int("Number of beds", 1, 1000)
+                    self.patient_data.update_hospital(self.num_beds)
 
                 case 3:
                     self.num_patients = self.select_int("Number of patients", 1, 7000)
