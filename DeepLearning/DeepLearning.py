@@ -56,6 +56,8 @@ def load_data_printless(directory):
             df = pd.read_csv(file_path)
             
             if 'esi' in df.columns:
+                # Keep only rows where 'esi' is numeric (and not NaN)
+                df = df[pd.to_numeric(df['esi'], errors='coerce').notna()]
                 combined_df = pd.concat([combined_df, df])
             
     combined_df = combined_df.reset_index(drop=True)
@@ -73,6 +75,8 @@ def load_data(directory):
             
             if 'esi' in df.columns:
                 print(f"Loaded {len(df)} records from {filename}")
+                # Keep only rows where 'esi' is numeric (and not NaN) EXPERIMENTAL - NOTE THIS IS TO PREVENT NaN esi VALUES
+                df = df[pd.to_numeric(df['esi'], errors='coerce').notna()]
                 combined_df = pd.concat([combined_df, df])
             else:
                 print(f"Warning: 'esi' column not found in {filename}, skipping file.")

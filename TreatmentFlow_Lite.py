@@ -133,7 +133,7 @@ class Menu:
 
         while True:
             # core menu
-            print(f"\nPatient {patient_id}: ")
+            print(f"\nPatient {patient_id}. CTAS {patient_dict['ctas']}: ")
             print(" 1. Service times")
             print(" 2. Symptom list")
             print(" 3. Patient document")
@@ -201,8 +201,43 @@ class Menu:
                 case 3:
                     return
 
-    # def update_stats(self):
-        
+    def update_stats(self):
+
+        while True:
+
+            # core menu
+            print("\nHospital stats: ")
+            print(f" Beds: {self.num_beds}")
+            print(f" Patients: {self.num_patients}")
+
+            print("\nUpdate options: ")
+            print(" 1. Update user info")
+            print(" 2. Update hospital size")
+            print(" 3. Update patient list")
+            print(" 4. Exit")
+
+            response = self.select_int("Choice", 1, 4)
+            match response:
+                case 1:
+                    # enter user patient info (user is always patient ID 0)
+                    user_arrival = self.select_int("User arrival time (by the minute)", 0, 1439)
+                    self.patient_data.add_user_info(user_arrival)
+
+                    # ** final product should allow users to perform triage survey
+                case 2:
+                    num_beds = self.select_int("Number of beds", 1, 1000)
+                    self.patient_data.update_hospital(num_beds)
+
+                case 3:
+                    self.num_patients = self.select_int("Number of patients", 1, 7000)
+                    self.patient_data.num_patients = self.num_patients
+
+                    # randomly sampling existing patient profile
+                    self.patient_data.fill_db()
+
+                case 4:
+                    return
+
     def run_menu(self):
 
         print("\nWelcome to TreatmentFlow Lite!")
@@ -223,62 +258,26 @@ class Menu:
 
             # core menu
             print("\nPlease select an option: ")
-            print(" 1. Update user info")
-            print(" 2. Update hospital size")
-            print(" 3. Access patient database")
-            print(" 4. Update patient list")
-            print(" 5. Print bed assignments")
-            print(" 6. Quit")
+            print(" 1. Access patient database")
+            print(" 2. Print bed assignments")
+            print(" 3. Update hospital database")
+            print(" 4. Quit")
 
             response = self.select_int("Choice", 1, 6)
             match response:
                 case 1:
-                    # enter patient info (user is always patient ID 0)
-                    user_arrival = self.select_int("User arrival time (by the minute)", 0, 1439)
-                    self.patient_data.add_user_info(user_arrival)
-
-                    # ** final product should allow users to perform triage survey
-                case 2:
-                    num_beds = self.select_int("Number of beds", 1, 1000)
-                    self.patient_data.update_hospital(num_beds)
-
-                case 3:
                     self.access_patients()
 
-                case 4:
-                    self.num_patients = self.select_int("Number of patients", 1, 7000)
-                    self.patient_data.num_patients = self.num_patients
-
-                    # randomly sampling existing patient profile
-                    self.patient_data.fill_db()
-
-                case 5:
-                    # assign patients to beds
+                case 2:
+                    # print bed assignment updates
                     self.patient_data.assign_beds(True)
 
-                case 6:
+                case 3:
+                    self.update_stats()
+
+                case 4:
                     return
 
-
-            
-            
-
-            
-
-            # print("Printing patient db:") # TEMPORARY - FOR TESTING/SHOWCASE
-            # for row in self.patient_data.patient_db:
-            #     print()
-            #     print(f"Row: {row}")
-            #     print(row["id"])
-            #     print(row["ctas"])
-            #     print(row["arrival"])
-
-            #     for symptom_name, symptom_value in row["symptoms"].items():
-            #         # print(f"Symptoms: {symptom_name} - {symptom_value}")
-            #         if isinstance(symptom_value, numbers.Number):
-            #             if symptom_value > 0:
-            #                 print(f"Symptoms: {symptom_name} - {symptom_value}")
-        
 
 my_menu = Menu()
 my_menu.run_menu()
