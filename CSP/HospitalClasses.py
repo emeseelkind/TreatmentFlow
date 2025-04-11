@@ -78,6 +78,16 @@ class Patient:
         self.service_time = service_time
         self.service_start = -1
 
+    def fill_patient_stats(self, id, arrival, ctas):
+        # designed to be used to fill n patient stats from TreatmentFlow Lite
+        self.id = id
+        self.arrival_time = arrival
+
+        # get "priority" from the inverse of CTAS value
+        self.priority = 6 - ctas
+
+        self.set_service_time()
+
     def gen_rand_patient(self):
         self.priority = random.randint(1,5)
         self.arrival_time = random.randint(0,1439)
@@ -85,7 +95,7 @@ class Patient:
 
     def set_service_time(self):
         if self.priority == 1:
-            self.service_time = random.randint(10, 60)
+            self.service_time = random.randint(15, 60)
         elif self.priority == 2:
             self.service_time = random.randint(20, 90)
         elif self.priority == 3:
@@ -107,7 +117,7 @@ class Patient:
         return print_time(self.arrival_time)
     
     def service_time_printed(self):
-        return print_time(self.service_time) 
+        return print_time(self.service_time)
      
 # HosptialRecords class includes information about every patient in the hospital
 class HospitalRecords:
@@ -126,6 +136,25 @@ class HospitalRecords:
         for i in range(NUM_BEDS):
             new_bed = Bed(i)
             self.beds.append(new_bed)
+
+    def reset_service(self):
+
+        # empty out beds
+        for bed in self.beds:
+            bed.discharge()
+        
+        self.beds_available = self.NUM_BEDS
+
+        # reset patient service records
+        self.unserved = []
+        self.serving = []
+
+        for patient in self.patient_list:
+            # set patient as unserved
+            patient.service_start = -1
+
+        # create and sort unserved list
+        self.unserved = self.mergesort_patient_list(self.patient_list) 
 
     def gen_patient_list(self, numpatients):
         self.max_patient_id = 0

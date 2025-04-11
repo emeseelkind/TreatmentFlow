@@ -8,8 +8,8 @@ Started: February 2025
 CISC 352: Artificial Intelligence
 """
 
-from HospitalClasses import HospitalRecords
-from HospitalClasses import print_time
+from .HospitalClasses import HospitalRecords
+from .HospitalClasses import print_time
 
 # This file is an experimental application of our bed assignment system using the greedy paradigm
 
@@ -45,6 +45,9 @@ class Scheduler:
 
     # object oriented hospital simulator
     def run_hospital(self, printing):
+
+        # make sure patients are marked as unserved
+        self.Hospital.reset_service()
 
         # 'printing' is boolean input to determine whether updating print happens
         for minute in range(1440):
