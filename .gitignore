@@ -1,0 +1,7 @@
+.DS_Store
+.RDataTmp
+.Rapp.history
+.Rhistory
+**/__pycache__
+__pycache__
+venv
