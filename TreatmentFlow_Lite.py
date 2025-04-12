@@ -44,19 +44,24 @@ class PatientDatabase:
         self.hospital = HospitalRecords(num_beds)
         self.scheduler = Scheduler(self.hospital)
 
-    def add_user_info(self, arrival):
-
-        print("Randomizing user symptoms...")
-        random_index = np.random.choice(len(self.df))
-        random_row = self.df.iloc[random_index].drop("esi")
-
-        self.user_id = 0
+    def add_user_info(self, arrival, symptoms=None):
 
         patient = {}
         patient["id"] = self.user_id
         patient["arrival"] = arrival
-        patient["ctas"] = int(0) # ** MUST USE DL TO PREDICT SYMPTOMS
-        patient["symptoms"] = random_row
+
+        if isinstance(symptoms, dict):
+            # process triage info (input into db in proper format)
+            patient["symptoms"] = symptoms
+        else:
+            # randomize symptoms
+            print("Randomizing user symptoms...")
+            random_index = np.random.choice(len(self.df))
+            random_row = self.df.iloc[random_index].drop("esi")
+
+            patient["symptoms"] = random_row
+
+        patient["ctas"] = int(0) # ** MUST USE DL TO PREDICT SYMPTOMS IN FINAL PRODUCT
 
         self.patient_db.insert(0, patient)
         self.user_id = 0
@@ -207,7 +212,6 @@ class Menu:
         
         # chest/thorax
         ct_pain = self.select_int("Pain in the chest/thorax", 0, user["cc_pain"])
-        user["cc_chestpain"] = self.select_int("Chest pain", 0, ct_pain)
         user["cc_ribpain"] = self.select_int("Rib pain", 0, ct_pain)
         user["cc_breastpain"] = self.select_int("Breast pain", 0, ct_pain)
 
@@ -290,6 +294,9 @@ class Menu:
         user["cc_faciallaceration"] = self.select_int("Facial laceration", 0, user["cc_laceration"])
         user["cc_headlaceration"] = self.select_int("Head laceration", 0, user["cc_laceration"])
         user["cc_extremitylaceration"] = self.select_int("Extremity laceration", 0, user["cc_laceration"])
+
+        # return symptom dictionary
+        return user
 
 
     def observe_patient(self, patient_id):
@@ -388,9 +395,13 @@ class Menu:
                 case 1:
                     # enter user patient info (user is always patient ID 0)
                     user_arrival = self.select_int("User arrival time (by the minute)", 0, 1439)
-                    self.patient_data.add_user_info(user_arrival)
 
-                    # ** final product should allow users to perform triage survey
+                    # randomize symptoms if preferred
+                    if self.select_int("Perform triage", 0, 1):
+                        self.patient_data.add_user_info(user_arrival, self.triage_survey())
+                    else:
+                        self.patient_data.add_user_info(user_arrival)
+
                 case 2:
                     self.num_beds = self.select_int("Number of beds", 1, 1000)
                     self.patient_data.update_hospital(self.num_beds)
