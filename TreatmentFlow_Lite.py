@@ -112,6 +112,11 @@ class Menu:
         self.patient_db = None
 
     def select_int(self, message, lb, ub):
+
+        # bypass query if only one option
+        if lb == ub: # assume proper input (no ub < lb)
+            return lb
+
         # guarantees proper user input
         output = input(message + ": ")
 
@@ -124,6 +129,168 @@ class Menu:
                     output = input(f"Input must be within bounds ({lb}, {ub}): ")
             except ValueError:
                 output = input("Input must be an integer: ")
+
+    def triage_survey(self):
+
+        # store user triage information from survey
+        user = {}        
+
+        # minimum and maximum values set by full dataset min/max values
+
+        print("\nTriage survey:")
+
+        # introductory questions (age, sex)
+        user["age"] = self.select_int("Age", 0, 150)
+        sex_num = self.select_int("Sex (M=1, F=2)", 1, 2)
+        if sex_num == 1:
+            user["gender"] = "Male"
+        else:
+            user["gender"] = "Female"
+        
+        # vitals
+        print("\nVitals:")
+        user["triage_vital_sbp"] = self.select_int("Systolic blood pressure", 45, 312)
+        user["triage_vital_dbp"] = self.select_int("Diastolic blood pressure", 25, 214)
+        user["triage_vital_hr"] = self.select_int("Heart rate", 30, 280)
+        user["triage_vital_temp"] = self.select_int("Body temperature (*F)", 90, 106)
+        user["triage_vital_o2"] = self.select_int("Oxygen saturation (%)", 60, 99)
+
+        # COULD HAVE QUESTION ABOUT CHIEF COMPLAINT
+
+        # systems
+        print("\nBodily systems (all answers y=1 or n=0):")
+
+        # psycho-social
+        user["cc_anxiety"] = self.select_int("Anxiety", 0, 1)
+        user["cc_agitation"] = self.select_int("Agitiation", 0, 1)
+        user["cc_blurredvision"] = self.select_int("Blurred vision", 0, 1)
+
+        # cardiovascular
+        user["cc_chestpain"] = self.select_int("Chest pain", 0, 1)
+
+        swelling = self.select_int("Experiencing swelling", 0, 1) # only ask about specific swelling if necessary
+        user["cc_legswelling"] = self.select_int("Legs swelling", 0, swelling)
+        user["cc_armswelling"] = self.select_int("Arms swelling", 0, swelling)
+        user["cc_facialswelling"] = self.select_int("Facial swelling", 0, swelling)
+        user["cc_fingerswelling"] = self.select_int("Finger swelling", 0, swelling)
+        user["cc_jointswelling"] = self.select_int("Joint swelling", 0, swelling)
+        
+        # respiratory
+        user["cc_shortnessofbreath"] = self.select_int("Shortness of breath", 0, 1)
+        user["cc_dyspnea"] = user["cc_shortnessofbreath"]
+        user["cc_cough"] = self.select_int("Cough", 0, 1)
+
+        # gastrointestinal
+        user["cc_nausea"] = self.select_int("Nausea", 0, 1)
+        user["cc_vomiting"] = self.select_int("Vomiting", 0, 1)
+        user["cc_emesis"] = user["cc_vomiting"]
+        
+        # genitourinary
+        user["cc_dysuria"] = self.select_int("Difficulty or pain urinating", 0, 1)
+        
+        # musculoskeletal/pain
+
+        # PAIN IN REGIONS (only ask questions if user experiencing pain in region)
+
+        # master attribute, determines whether others can be true
+        user["cc_pain"] = self.select_int("Experiencing pain", 0, 1)
+
+        # head/face/neck
+        hfn_pain = self.select_int("Pain in the head/face/neck", 0, user["cc_pain"])
+        user["cc_headpain"] = self.select_int("Head pain", 0, hfn_pain)
+        user["cc_dentalpain"] = self.select_int("Tooth pain", 0, hfn_pain)
+        user["cc_earpain"] = self.select_int("Ear pain", 0, hfn_pain)
+        user["cc_eyepain"] = self.select_int("Eye pain", 0, hfn_pain)
+        user["cc_facialpain"] = self.select_int("Facial pain", 0, hfn_pain)
+        user["cc_jawpain"] = self.select_int("Jaw pain", 0, hfn_pain)
+        user["cc_neckpain"] = self.select_int("Neck pain", 0, hfn_pain)
+        
+        # chest/thorax
+        ct_pain = self.select_int("Pain in the chest/thorax", 0, user["cc_pain"])
+        user["cc_chestpain"] = self.select_int("Chest pain", 0, ct_pain)
+        user["cc_ribpain"] = self.select_int("Rib pain", 0, ct_pain)
+        user["cc_breastpain"] = self.select_int("Breast pain", 0, ct_pain)
+
+        # back
+        user["cc_backpain"] = self.select_int("Back pain", 0, user["cc_pain"])
+
+        # abdomen/GI
+        agi_pain = self.select_int("Pain in the abdomen/gastrointestinal region", 0, user["cc_pain"])
+        user["cc_abdominalpain"] = self.select_int("Abdominal pain", 0, agi_pain)
+        if sex_num == 2:
+            user["cc_abdominalpainpregnant"] = self.select_int("Abdominal pain related to pregnancy", 0, agi_pain)
+        else:
+            user["cc_abdominalpainpregnant"] = 0
+        user["cc_epigastricpain"] = self.select_int("Upper abdomen pain", 0, agi_pain)
+        user["cc_flankpain"] = self.select_int("Side of abdomen pain", 0, agi_pain)
+        user["cc_pelvicpain"] = self.select_int("Pelvic pain", 0, agi_pain)
+        user["cc_rectalpain"] = self.select_int("Rectal pain", 0, agi_pain)
+
+        # genitals
+        gen_pain = self.select_int("Pain of the genitals", 0, user["cc_pain"])
+        if sex_num == 1: # if biologically male
+            user["cc_testiclepain"] = self.select_int("Testicle pain", 0, gen_pain)
+            user["cc_vaginalpain"] = 0
+        else: # if biologically female
+            user["cc_testiclepain"] = 0
+            user["cc_vaginalpain"] = self.select_int("Vaginal pain", 0, gen_pain)
+        user["cc_groinpain"] = self.select_int("Groin pain", 0, gen_pain)
+
+        # lower limbs
+        lower_pain = self.select_int("Pain of the lower limbs", 0, user["cc_pain"])
+        user["cc_legpain"] = self.select_int("Leg pain", 0, lower_pain)
+        user["cc_kneepain"] = self.select_int("Knee pain", 0, lower_pain)
+        user["cc_anklepain"] = self.select_int("Ankle pain", 0, lower_pain)
+        user["cc_toepain"] = self.select_int("Toe pain", 0, lower_pain)
+        user["cc_footpain"] = self.select_int("Foot pain", 0, lower_pain)
+        user["cc_hippain"] = self.select_int("Hip pain", 0, lower_pain)
+
+        # upper limbs
+        upper_pain = self.select_int("Pain of the upper limbs", 0, user["cc_pain"])
+        user["cc_armpain"] = self.select_int("Arm pain", 0, upper_pain)
+        user["cc_handpain"] = self.select_int("Hand pain", 0, upper_pain)
+        user["cc_fingerpain"] = self.select_int("Finger pain", 0, upper_pain)
+        user["cc_wristpain"] = self.select_int("Wrist pain", 0, upper_pain)
+        user["cc_elbowpain"] = self.select_int("Elbow pain", 0, upper_pain)
+        user["cc_shoulderpain"] = self.select_int("Shoulder pain", 0, upper_pain)
+
+
+        # RECENT INJURY IN REGIONS (only ask questions if user experiencing pain in region)
+        injury = self.select_int("Recent injury", 0, 1)
+
+        # head/face/neck
+        hfn_injury = self.select_int("Injury to the head/face/neck", 0, injury)
+        user["cc_headinjury"] = self.select_int("Head injury", 0, hfn_injury)
+        user["cc_facialinjury"] = self.select_int("Facial injury", 0, hfn_injury)
+        user["cc_eyeinjury"] = self.select_int("Eye injury", 0, hfn_injury)
+        
+        # chest/rib/thorax
+        user["cc_ribinjury"] = self.select_int("Rib injury", 0, injury)
+
+        # lower limbs
+        lower_injury = self.select_int("Injury to the lower limbs", 0, injury)
+        user["cc_leginjury"] = self.select_int("Leg injury", 0, lower_injury)
+        user["cc_kneeinjury"] = self.select_int("Knee injury", 0, lower_injury)
+        user["cc_footinjury"] = self.select_int("Foot injury", 0, lower_injury)
+        user["cc_toeinjury"] = self.select_int("Toe injury", 0, lower_injury)
+        user["cc_ankleinjury"] = self.select_int("Ankle injury", 0, lower_injury)
+
+        # upper limbs
+        upper_injury = self.select_int("Injury to the upper limbs", 0, injury)
+        user["cc_arminjury"] = self.select_int("Arm injury", 0, upper_injury)
+        user["cc_handinjury"] = self.select_int("Hand injury", 0, upper_injury)
+        user["cc_fingerinjury"] = self.select_int("Finger injury", 0, upper_injury)
+        user["cc_thumbinjury"] = self.select_int("Thumb injury", 0, upper_injury)
+        user["cc_wristinjury"] = self.select_int("Wrist injury", 0, upper_injury)
+        user["cc_shoulderinjury"] = self.select_int("Shoulder injury", 0, upper_injury)
+
+
+        # LACERATION/CUTS
+        user["cc_laceration"] = self.select_int("Laceration (cuts)", 0, 1)
+        user["cc_faciallaceration"] = self.select_int("Facial laceration", 0, user["cc_laceration"])
+        user["cc_headlaceration"] = self.select_int("Head laceration", 0, user["cc_laceration"])
+        user["cc_extremitylaceration"] = self.select_int("Extremity laceration", 0, user["cc_laceration"])
+
 
     def observe_patient(self, patient_id):
         if self.patient_data.user_id < 0:
@@ -263,7 +430,7 @@ class Menu:
             print(" 3. Update hospital database")
             print(" 4. Quit")
 
-            response = self.select_int("Choice", 1, 6)
+            response = self.select_int("Choice", 1, 4)
             match response:
                 case 1:
                     self.access_patients()
