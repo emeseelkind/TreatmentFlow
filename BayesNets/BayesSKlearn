@@ -1,0 +1,36 @@
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.model_selection import train_test_split
+import pandas as pd
+
+import numpy as np
+
+data = pd.read_csv('symbipredict_2022.csv')
+
+# Split into features (X) and target (y)
+X = data.drop('prognosis', axis=1)
+y = data['prognosis']
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train Naive Bayes model (Bernoulli for binary features)
+model = BernoulliNB()
+model.fit(X_train, y_train)
+
+# Evaluation
+accuracy = model.score(X_test, y_test)
+print(f"Accuracy: {accuracy:.4f}")
+
+# Example prediction with probabilities
+def predict_disease(symptoms_dict):
+    # Convert symptoms dict to array in correct order
+    symptoms_array = np.zeros(len(X.columns))
+    for symptom, value in symptoms_dict.items():
+        if symptom in X.columns:
+            idx = X.columns.get_loc(symptom)
+            symptoms_array[idx] = value
+    
+    # Get probabilities for all diseases
+    probs = model.predict_proba([symptoms_array])[0]
+    disease_probs = dict(zip(model.classes_, probs))
+    return disease_probs

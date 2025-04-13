@@ -1,4 +1,4 @@
-import pandas as pd
+"""import pandas as pd
 from pgmpy.estimators import HillClimbSearch, BicScore, BayesianEstimator
 from pgmpy.models import BayesianNetwork
 from pgmpy.inference import VariableElimination
@@ -54,3 +54,47 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
+
+import pandas as pd
+import numpy as np
+from pgmpy.models import BayesianNetwork
+from pgmpy.estimators import BayesianEstimator, MaximumLikelihoodEstimator
+from pgmpy.estimators import HillClimbSearch, BicScore
+from pgmpy.inference import VariableElimination
+
+# Load the data
+data = pd.read_csv('symbipredict_2022.csv')
+
+# Optional: Feature selection to reduce dimensionality (too many symptoms can make structure learning slow)
+# Here we could use mutual information or chi-square to select top symptoms
+
+# Structure learning - discover relationships between symptoms and diseases
+hc = HillClimbSearch(data)
+model = hc.estimate(scoring_method=BicScore(data))
+
+# Convert the learned structure to a Bayesian Network
+bn_model = BayesianNetwork(model.edges())
+
+# Fit parameters (CPTs) to the data
+bn_model.fit(data, estimator=BayesianEstimator, prior_type='BDeu')
+
+# Create an inference object
+inference = VariableElimination(bn_model)
+
+# Example: Diagnostic inference (given symptoms, what's the probability of each disease?)
+def diagnose(symptoms):
+    """
+    symptoms: dict of symptom names and values (0 or 1)
+    returns: probability distribution over diseases
+    """
+    return inference.query(variables=['prognosis'], evidence=symptoms)
+
+# Example usage:
+diagnosis = diagnose({
+    'itching': 1, 
+    'skin_rash': 1, 
+    'nodal_skin_eruptions': 1,
+    'dischromic_patches': 1
+})
+print(diagnosis)
