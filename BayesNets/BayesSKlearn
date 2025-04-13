@@ -1,3 +1,12 @@
+"""
+TreatmentFlow
+Bayesian Networks - Disease Diagnostics from Triage Inputs
+
+By Adam Neto and Emese Elkind
+Started: February 2025
+
+CISC 352: Artificial Intelligence
+"""
 import pandas as pd
 import numpy as np
 from sklearn.naive_bayes import BernoulliNB
@@ -14,11 +23,9 @@ def load_data(file_path):
     Load data from a CSV file and return it as a pandas DataFrame.
     
     Parameters:
-    -----------
     file_path : str - Path to the CSV file
         
     Returns:
-    --------
     pd.DataFrame - Loaded data as a DataFrame
     """
     data = pd.read_csv(file_path)
@@ -29,11 +36,9 @@ def preprocess_data(data):
     Preprocess the data by preparing features and target.
     
     Parameters:
-    -----------
     data : pd.DataFrame - DataFrame containing the dataset
         
     Returns:
-    --------
     tuple- X (features DataFrame), y (target Series)
     """
     # features (X) and target (y)
@@ -48,14 +53,12 @@ def train_test_data_split(X, y, test_size=0.2, random_state=42):
     Split data into training and testing sets.
     
     Parameters:
-    -----------
     X : pd.DataFrame -Features
     y : pd.Series -Target
     test_size : float - Proportion of data to use for testing
     random_state : int - Random seed for reproducibility
         
     Returns:
-    --------
     tuple - X_train, X_test, y_train, y_test
     """
     X_train, X_test, y_train, y_test = train_test_split(
@@ -70,13 +73,11 @@ def train_model(X_train, y_train, alpha=1.0):
     Train a Bernoulli Naive Bayes model.
     
     Parameters:
-    -----------
     X_train : pd.DataFrame -Training features
     y_train : pd.Series - Training target
     alpha : float - Laplace/Lidstone smoothing parameter
         
     Returns:
-    --------
     model : BernoulliNB
     """
     # Train Bernoulli Naive Bayes model (appropriate for binary features)
@@ -90,13 +91,11 @@ def evaluate_model(model, X_test, y_test):
     Evaluate the model using accuracy and classification report.
     
     Parameters:
-    -----------
     model : BernoulliNB
     X_test : pd.DataFrame
     y_test : pd.Series
         
     Returns:
-    --------
     tuple - y_pred (predictions), accuracy (float)
     """
     y_pred = model.predict(X_test)
@@ -114,14 +113,12 @@ def perform_cross_validation(model, X, y, cv=5):
     Perform cross-validation and return scores.
     
     Parameters:
-    -----------
     model : BernoulliNB - Model to evaluate
     X : pd.DataFrame
     y : pd.Series
     cv : int - Number of cross-validation folds
         
     Returns:
-    --------
     list - Cross-validation scores
     """
     cv_scores = cross_val_score(model, X, y, cv=cv)
@@ -134,16 +131,14 @@ def predict_disease(model, symptoms_dict, X_columns):
     Predict disease probabilities based on provided symptoms
     
     Parameters:
-    -----------
     model : BernoulliNB
     symptoms_dict : dict - Dictionary with symptom names as keys and 0/1 as values
     X_columns : list - List of all possible symptom names
         
     Returns:
-    --------
     dict - Disease names and their probabilities, sorted by probability
     """
-    # Create a DataFrame with all symptoms set to 0
+    # DataFrame with all symptoms set to 0
     patient = pd.DataFrame(np.zeros((1, len(X_columns))), columns=X_columns)
     
     # Set the provided symptoms to 1
@@ -166,19 +161,17 @@ def diagnose_patient(model, symptoms_dict, X_columns, top_n=5):
     Diagnose a patient based on reported symptoms
     
     Parameters:
-    -----------
     model : BernoulliNB
     symptoms_dict : Dictionary with symptom names as keys and 0/1 as values
     X_columns : list of all possible symptom names
     top_n : int - Number of top diagnoses to return
         
     Returns:
-    --------
     List of tuples (disease, probability)
     """
     disease_probs = predict_disease(model, symptoms_dict, X_columns)
     
-    # Get top N diseases with highest probabilities
+    # Get top 5 diseases with highest probabilities
     top_diseases = list(disease_probs.items())[:top_n]
     
     return top_diseases
@@ -188,14 +181,12 @@ def important_symptoms_for_disease(model, disease_name, X_columns, top_n=10):
     Identify the most important symptoms for a given disease based on feature probabilities
     
     Parameters:
-    -----------
     model : BernoulliNB
     disease_name : str - Name of the disease
     X_columns : list- List of all possible symptom names
     top_n : int - Number of top symptoms to return
         
     Returns:
-    --------
     dict - Symptom names and their importance scores
     """
     if disease_name not in model.classes_:
@@ -223,7 +214,6 @@ def plot_diagnosis(model, symptoms_dict, X_columns, top_n=5):
     Plot the top N probable diseases based on symptoms
     
     Parameters:
-    -----------
     model : BernoulliNB
     symptoms_dict : dict - Dictionary with symptom names as keys and 0/1 as values
     X_columns : list - List of all possible symptom names
@@ -257,7 +247,6 @@ def plot_confusion_matrix(y_test, y_pred, classes):
     Plot the confusion matrix for model evaluation
     
     Parameters:
-    -----------
     y_test : pd.Series - True labels
     y_pred : pd.Series - Predicted labels
     classes : list - List of class names
@@ -282,7 +271,6 @@ def interactive_diagnosis(model, X_columns):
     Interactive command-line tool for diagnosing based on symptoms
     
     Parameters:
-    -----------
     model : BernoulliNB
     X_columns : list
     """
@@ -391,7 +379,6 @@ def generate_bedside_document(patient_id, symptoms_dict, top_diagnoses, model, X
     Generate a doctor-focused bedside document with diagnosis probabilities
     
     Parameters:
-    -----------
     patient_id : str - Patient identifier
     symptoms_dict : Dictionary with symptom names as keys and 0/1 as values
     top_diagnoses : List of tuples (disease, probability)
