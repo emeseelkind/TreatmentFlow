@@ -1,521 +1,403 @@
 import pandas as pd
 import numpy as np
-import pymc3 as pm
-import arviz as az
 import matplotlib.pyplot as plt
+import networkx as nx
+from pgmpy.estimators import HillClimbSearch, BicScore, BayesianEstimator, K2Score
+from pgmpy.models import BayesianNetwork
+from pgmpy.inference import VariableElimination
+from pgmpy.factors.discrete import TabularCPD
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import seaborn as sns
+import os
+import warnings
 
-def load_data(file_path):
-    """
-    Load the dataset from the specified file path
-    
-    Parameters:
-    file_path (str): Path to the CSV file
-    
-    Returns:
-    pandas.DataFrame: Loaded data
-    """
-    try:
-        # Load the dataset
-        df = pd.read_csv(file_path)
-        print(f"Successfully loaded data with {df.shape[0]} rows and {df.shape[1]} columns")
-        return df
-    except Exception as e:
-        print(f"Error loading data: {e}")
-        return None
+# Suppress warnings
+warnings.filterwarnings('ignore')
 
-def explore_data(df):
-    """
-    Explore the dataset and provide basic statistics
-    
-    Parameters:
-    df (pandas.DataFrame): The dataset to explore
-    
-    Returns:
-    dict: Dictionary containing basic statistics
-    """
-    # Basic information
-    stats = {
-        'num_rows': df.shape[0],
-        'num_cols': df.shape[1],
-        'columns': list(df.columns),
-        'missing_values': df.isnull().sum().to_dict(),
-        'data_types': df.dtypes.to_dict(),
-        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
-        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
-    }
-    
-    # Print basic stats
-    print(f"Dataset has {stats['num_rows']} rows and {stats['num_cols']} columns")
-    print("\nColumn names:")
-    for col in stats['columns']:
-        print(f"- {col}")
-    
-    print("\nMissing values:")
-    for col, count in stats['missing_values'].items():
-        if count > 0:
-            print(f"- {col}: {count} missing values ({count/df.shape[0]*100:.2f}%)")
-    
-    return stats
 
-def preprocess_data(df, target_column, categorical_columns=None, numeric_columns=None):
+def load_and_preprocess_data(file_path, test_size=0.2, random_state=42):
     """
-    Preprocess the data for Bayesian analysis
+    Load and preprocess the data from the CSV file.
     
-    Parameters:
-    df (pandas.DataFrame): The dataset to preprocess
-    target_column (str): The target column for prediction
-    categorical_columns (list): List of categorical columns to one-hot encode
-    numeric_columns (list): List of numeric columns to standardize
-    
+    Args:
+        file_path (str): Path to the CSV file
+        test_size (float): Proportion of the dataset to include in the test split
+        random_state (int): Random seed for reproducibility
+        
     Returns:
-    tuple: (X_train, X_test, y_train, y_test, scaler, processed_df)
+        tuple: (X_train, X_test, y_train, y_test, all_columns, encoded_diagnosis)
     """
-    # Make a copy to avoid modifying the original
-    processed_df = df.copy()
+    print(f"Loading data from {file_path}")
     
-    # Handle missing values
-    for col in processed_df.columns:
-        if processed_df[col].dtype == np.number:
-            processed_df[col].fillna(processed_df[col].median(), inplace=True)
+    # Load data
+    df = pd.read_csv(file_path)
+    
+    # Check for any missing values
+    missing_values = df.isnull().sum().sum()
+    if missing_values > 0:
+        print(f"Found {missing_values} missing values. Dropping rows with missing values.")
+        df = df.dropna()
+    
+    # Get diagnosis column name (assumes it's the last column)
+    target_col = 'prognosis'
+    if target_col not in df.columns:
+        # Try to find a column that might represent diagnosis
+        potential_targets = [col for col in df.columns if 'diagnosis' in col.lower() 
+                           or 'prognosis' in col.lower() 
+                           or 'disease' in col.lower()]
+        if potential_targets:
+            target_col = potential_targets[0]
+            print(f"Using {target_col} as the target variable")
         else:
-            processed_df[col].fillna(processed_df[col].mode()[0], inplace=True)
+            # Assume the last column is the target
+            target_col = df.columns[-1]
+            print(f"No clear target column found. Using the last column ({target_col}) as target")
     
-    # Process categorical columns if provided
-    if categorical_columns:
-        processed_df = pd.get_dummies(processed_df, columns=categorical_columns, drop_first=True)
+    # Create a mapping for diagnoses
+    unique_diagnoses = df[target_col].unique()
+    diagnosis_to_code = {diagnosis: i for i, diagnosis in enumerate(unique_diagnoses)}
+    code_to_diagnosis = {i: diagnosis for i, diagnosis in enumerate(unique_diagnoses)}
     
-    # Separate features and target
-    X = processed_df.drop(columns=[target_column])
-    y = processed_df[target_column]
+    # Encode the target variable
+    df['encoded_diagnosis'] = df[target_col].map(diagnosis_to_code)
     
-    # Standardize numeric features if provided
-    scaler = None
-    if numeric_columns:
-        valid_numeric_cols = [col for col in numeric_columns if col in X.columns]
-        if valid_numeric_cols:
-            scaler = StandardScaler()
-            X[valid_numeric_cols] = scaler.fit_transform(X[valid_numeric_cols])
+    # Prepare features and target
+    X = df.drop([target_col, 'encoded_diagnosis'], axis=1)
+    y = df['encoded_diagnosis']
     
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, 
+                                                       random_state=random_state, 
+                                                       stratify=y)
     
-    print(f"Training data shape: {X_train.shape}")
-    print(f"Testing data shape: {X_test.shape}")
+    # Convert to pandas dataframes
+    X_train = pd.DataFrame(X_train, columns=X.columns)
+    X_test = pd.DataFrame(X_test, columns=X.columns)
+    y_train = pd.Series(y_train)
+    y_test = pd.Series(y_test)
     
-    return X_train, X_test, y_train, y_test, scaler, processed_df
+    # Combine features and target for Bayesian Network
+    train_data = X_train.copy()
+    train_data['diagnosis'] = y_train
+    
+    # Get all column names
+    all_columns = list(train_data.columns)
+    
+    print(f"Data loaded successfully. Training set: {train_data.shape}, Test set: {X_test.shape}")
+    print(f"Number of features: {len(X.columns)}")
+    print(f"Number of classes: {len(unique_diagnoses)}")
+    
+    return train_data, X_test, y_test, all_columns, code_to_diagnosis
 
-def build_bayesian_model(X_train, y_train, feature_names):
+
+def learn_structure(data, scoring_method='bic', max_indegree=3, max_iter=1000):
     """
-    Build a Bayesian logistic regression model
+    Learn the structure of the Bayesian Network.
     
-    Parameters:
-    X_train (numpy.ndarray): Training features
-    y_train (numpy.ndarray): Training target
-    feature_names (list): List of feature names for interpretability
-    
+    Args:
+        data (pd.DataFrame): Training data
+        scoring_method (str): Scoring method to use ('bic' or 'k2')
+        max_indegree (int): Maximum number of parents for each node
+        max_iter (int): Maximum number of iterations
+        
     Returns:
-    tuple: (model, trace)
+        pgmpy.models.BayesianModel: The learned structure
     """
-    n_features = X_train.shape[1]
+    print(f"Learning network structure using {scoring_method} scoring method...")
     
-    with pm.Model() as model:
-        # Priors for model parameters
-        alpha = pm.Normal('alpha', mu=0, sd=10)  # Intercept
-        betas = pm.Normal('betas', mu=0, sd=1, shape=n_features)  # Coefficients
-        
-        # Linear combination of predictors
-        eta = alpha + pm.math.dot(X_train, betas)
-        
-        # Logistic transformation
-        p = pm.Deterministic('p', 1 / (1 + pm.math.exp(-eta)))
-        
-        # Likelihood (assuming binary classification)
-        likelihood = pm.Bernoulli('likelihood', p=p, observed=y_train)
-        
-        # Sample from the posterior
-        trace = pm.sample(1000, tune=1000, return_inferencedata=True, cores=1)
-        
-    # Create a dictionary mapping coefficients to feature names
-    summary = az.summary(trace, var_names=['alpha', 'betas'])
-    coefficients = {}
-    coefficients['intercept'] = summary.loc['alpha', 'mean']
+    # Convert categorical variables to integers if needed
+    data_copy = data.copy()
+    for col in data_copy.columns:
+        if data_copy[col].dtype == 'object' or data_copy[col].dtype.name == 'category':
+            data_copy[col] = data_copy[col].astype('category').cat.codes
     
-    for i, feature in enumerate(feature_names):
-        coefficients[feature] = summary.loc[f'betas[{i}]', 'mean']
+    # Select scoring method
+    if scoring_method.lower() == 'k2':
+        scoring_method = K2Score(data_copy)
+    else:  # Default to BIC
+        scoring_method = BicScore(data_copy)
     
-    # Sort by absolute value to identify most important features
-    sorted_coeffs = {k: v for k, v in sorted(coefficients.items(), 
-                                             key=lambda item: abs(item[1]) if k != 'intercept' else 0, 
-                                             reverse=True)}
+    # Learn structure
+    hc = HillClimbSearch(data_copy)
+    model_structure = hc.estimate(
+        scoring_method=scoring_method,
+        max_indegree=max_indegree,
+        max_iter=max_iter
+    )
     
-    print("Model coefficients (sorted by importance):")
-    for feature, coeff in sorted_coeffs.items():
-        print(f"- {feature}: {coeff:.4f}")
-    
-    return model, trace, coefficients
+    print(f"Structure learning complete. Found {len(model_structure.edges())} edges.")
+    return model_structure
 
-def evaluate_model(model, trace, X_test, y_test):
+
+def build_and_train_model(structure, data, prior_type="BDeu", equivalent_sample_size=5):
     """
-    Evaluate the Bayesian model on test data
+    Build and train the Bayesian Network model.
     
-    Parameters:
-    model (pymc3.Model): The trained Bayesian model
-    trace (arviz.InferenceData): The trace from model sampling
-    X_test (numpy.ndarray): Test features
-    y_test (numpy.ndarray): Test target
-    
+    Args:
+        structure: The structure of the Bayesian Network
+        data (pd.DataFrame): Training data
+        prior_type (str): Type of prior to use
+        equivalent_sample_size (int): Equivalent sample size for BDeu prior
+        
     Returns:
-    dict: Performance metrics
+        pgmpy.models.BayesianNetwork: The trained model
     """
-    with model:
-        # Extract posterior samples for alpha and betas
-        alpha_samples = trace.posterior['alpha'].values.flatten()
-        betas_samples = trace.posterior['betas'].values.reshape(-1, X_test.shape[1])
-        
-        # Number of posterior samples
-        n_samples = len(alpha_samples)
-        
-        # Initialize array to store predictions
-        y_pred_proba = np.zeros((n_samples, len(y_test)))
-        
-        # Generate predictions for each posterior sample
-        for i in range(n_samples):
-            # Linear combination
-            eta = alpha_samples[i] + np.dot(X_test, betas_samples[i])
-            # Apply logistic function
-            y_pred_proba[i] = 1 / (1 + np.exp(-eta))
-        
-        # Calculate mean predicted probabilities
-        mean_proba = np.mean(y_pred_proba, axis=0)
-        # Convert to binary predictions using 0.5 threshold
-        y_pred = (mean_proba >= 0.5).astype(int)
-        
-        # Calculate metrics
-        accuracy = np.mean(y_pred == y_test)
-        
-        # Confusion matrix components
-        true_pos = np.sum((y_pred == 1) & (y_test == 1))
-        true_neg = np.sum((y_pred == 0) & (y_test == 0))
-        false_pos = np.sum((y_pred == 1) & (y_test == 0))
-        false_neg = np.sum((y_pred == 0) & (y_test == 1))
-        
-        # Calculate precision, recall, and F1 score
-        precision = true_pos / (true_pos + false_pos) if (true_pos + false_pos) > 0 else 0
-        recall = true_pos / (true_pos + false_neg) if (true_pos + false_neg) > 0 else 0
-        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-        
-        metrics = {
-            'accuracy': accuracy,
-            'precision': precision,
-            'recall': recall,
-            'f1_score': f1_score,
-            'confusion_matrix': {
-                'true_positive': true_pos,
-                'true_negative': true_neg,
-                'false_positive': false_pos,
-                'false_negative': false_neg
-            }
-        }
-        
-        print(f"Model Performance:")
-        print(f"- Accuracy: {accuracy:.4f}")
-        print(f"- Precision: {precision:.4f}")
-        print(f"- Recall: {recall:.4f}")
-        print(f"- F1 Score: {f1_score:.4f}")
-        print("\nConfusion Matrix:")
-        print(f"- True Positives: {true_pos}")
-        print(f"- True Negatives: {true_neg}")
-        print(f"- False Positives: {false_pos}")
-        print(f"- False Negatives: {false_neg}")
-        
-        return metrics, mean_proba
+    print("Building and training the model...")
+    
+    # Convert categorical variables to integers if needed
+    data_copy = data.copy()
+    for col in data_copy.columns:
+        if data_copy[col].dtype == 'object' or data_copy[col].dtype.name == 'category':
+            data_copy[col] = data_copy[col].astype('category').cat.codes
+    
+    # Create the model
+    model = BayesianNetwork(structure.edges())
+    
+    # Add CPDs (Conditional Probability Distributions)
+    model.fit(
+        data_copy, 
+        estimator=BayesianEstimator, 
+        prior_type=prior_type, 
+        equivalent_sample_size=equivalent_sample_size
+    )
+    
+    print("Model built and trained successfully.")
+    return model
 
-def visualize_results(trace, coefficients, feature_names, X_test, y_test, y_pred_proba):
+
+def visualize_network(model, save_path=None, figsize=(12, 10)):
     """
-    Visualize the results of the Bayesian analysis
+    Visualize the Bayesian Network.
     
-    Parameters:
-    trace (arviz.InferenceData): The trace from model sampling
-    coefficients (dict): Dictionary of model coefficients
-    feature_names (list): List of feature names
-    X_test (numpy.ndarray): Test features
-    y_test (numpy.ndarray): Test target
-    y_pred_proba (numpy.ndarray): Predicted probabilities
+    Args:
+        model: The Bayesian Network model
+        save_path (str): Path to save the visualization
+        figsize (tuple): Figure size
+        
+    Returns:
+        None
     """
-    # Plot coefficient distributions (forest plot)
-    plt.figure(figsize=(12, 8))
-    az.plot_forest(trace, var_names=['betas'], combined=True)
-    plt.title('Coefficient Distributions')
-    plt.ylabel('Features')
+    print("Visualizing the Bayesian Network...")
+    
+    plt.figure(figsize=figsize)
+    
+    # Create a directed graph
+    G = nx.DiGraph()
+    
+    # Add edges from the model
+    for edge in model.edges():
+        G.add_edge(edge[0], edge[1])
+    
+    # Calculate node positions using spring layout
+    pos = nx.spring_layout(G, seed=42)
+    
+    # Draw the network
+    nx.draw(
+        G, 
+        pos, 
+        with_labels=True, 
+        node_color='lightblue',
+        node_size=1500, 
+        arrowsize=20, 
+        font_size=10,
+        font_weight='bold',
+        edge_color='gray',
+        width=1.5
+    )
+    
+    plt.title('Bayesian Network Structure', fontsize=16)
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"Visualization saved to {save_path}")
+    
     plt.show()
+
+
+def evaluate_model(model, X_test, y_test, diagnosis_map):
+    """
+    Evaluate the Bayesian Network model.
     
-    # Plot posterior distributions
-    plt.figure(figsize=(12, 8))
-    az.plot_trace(trace, var_names=['alpha', 'betas'])
-    plt.title('Posterior Distributions')
-    plt.tight_layout()
-    plt.show()
+    Args:
+        model: The Bayesian Network model
+        X_test (pd.DataFrame): Test features
+        y_test (pd.Series): Test target
+        diagnosis_map (dict): Mapping from code to diagnosis
+        
+    Returns:
+        float: Accuracy score
+    """
+    print("Evaluating the model...")
     
-    # Plot ROC curve
-    from sklearn.metrics import roc_curve, auc
-    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
-    roc_auc = auc(fpr, tpr)
+    # Create an inference object
+    inference = VariableElimination(model)
     
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic')
-    plt.legend(loc="lower right")
-    plt.show()
+    # Make predictions
+    predictions = []
     
-    # Feature importance plot
-    sorted_coeffs = {k: v for k, v in sorted(coefficients.items(), 
-                                           key=lambda item: abs(item[1]) if k != 'intercept' else 0, 
-                                           reverse=True) if k != 'intercept'}
+    for i in range(len(X_test)):
+        # Get evidence
+        evidence = X_test.iloc[i].to_dict()
+        
+        # Ensure all values are integers
+        evidence = {k: int(v) for k, v in evidence.items()}
+        
+        # Make prediction
+        try:
+            pred = inference.map_query(variables=['diagnosis'], evidence=evidence)
+            predictions.append(pred['diagnosis'])
+        except Exception as e:
+            print(f"Error during prediction: {e}")
+            # If prediction fails, predict the most common class
+            predictions.append(y_test.mode()[0])
     
+    # Calculate metrics
+    accuracy = accuracy_score(y_test, predictions)
+    
+    print(f"Model accuracy: {accuracy:.4f}")
+    
+    # Convert numerical labels to original diagnoses for better interpretability
+    y_test_names = [diagnosis_map[code] for code in y_test]
+    pred_names = [diagnosis_map[code] for code in predictions]
+    
+    # Print classification report
+    print("\nClassification Report:")
+    print(classification_report(y_test_names, pred_names))
+    
+    # Plot confusion matrix for top classes
     plt.figure(figsize=(10, 8))
-    features = list(sorted_coeffs.keys())
-    values = list(sorted_coeffs.values())
-    colors = ['green' if v > 0 else 'red' for v in values]
     
-    plt.barh(features, [abs(v) for v in values], color=colors)
-    plt.xlabel('Absolute Coefficient Value')
-    plt.title('Feature Importance')
+    # Get top 10 classes for confusion matrix (if there are more than 10)
+    if len(set(y_test)) > 10:
+        # Get top 10 most frequent classes
+        top_classes = y_test.value_counts().nlargest(10).index
+        mask_test = y_test.isin(top_classes)
+        cm = confusion_matrix(
+            [y_test_names[i] for i in range(len(y_test)) if mask_test.iloc[i]], 
+            [pred_names[i] for i in range(len(predictions)) if mask_test.iloc[i]]
+        )
+        class_names = [diagnosis_map[code] for code in top_classes]
+    else:
+        cm = confusion_matrix(y_test_names, pred_names)
+        class_names = [diagnosis_map[code] for code in sorted(set(y_test))]
+    
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+    plt.title('Confusion Matrix')
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     plt.show()
+    
+    return accuracy
 
-def generate_diagnostic_report(coefficients, patient_data, feature_names):
+
+def predict_diagnosis(model, evidence, target_variable="diagnosis"):
     """
-    Generate a diagnostic report for a given patient
+    Predict diagnosis given evidence.
     
-    Parameters:
-    coefficients (dict): Model coefficients
-    patient_data (numpy.ndarray): Patient's feature values
-    feature_names (list): Names of the features
-    
+    Args:
+        model: The Bayesian Network model
+        evidence (dict): Evidence for prediction
+        target_variable (str): Target variable name
+        
     Returns:
-    dict: Diagnostic report with probability and contributing factors
+        dict: Prediction result
     """
-     if isinstance(patient_data, dict):
-        patient_data = pd.Series(patient_data)
+    # Ensure all values are integers
+    evidence = {k: int(v) for k, v in evidence.items()}
+    
+    # Create an inference object
+    infer = VariableElimination(model)
+    
+    # Make prediction
+    prediction = infer.map_query(variables=[target_variable], evidence=evidence)
+    
+    return prediction
 
-    # Ensure all features are in patient_data
-    missing_features = [f for f in feature_names if f not in patient_data]
-    if missing_features:
-        raise ValueError(f"Missing features in patient data: {missing_features}")
-    
-    # Extract intercept
-    intercept = coefficients.get('intercept', 0)
-    
-    # Compute weighted contributions of features
-    contributions = {}
-    linear_combination = intercept
-    for feature in feature_names:
-        value = patient_data[feature]
-        weight = coefficients.get(feature, 0)
-        contribution = value * weight
-        contributions[feature] = contribution
-        linear_combination += contribution
-    
-    # Compute predicted probability using logistic function
-    probability = 1 / (1 + np.exp(-linear_combination))
-    prediction = int(probability >= 0.5)
-    
-    print("\n--- Diagnostic Report ---")
-    print(f"Intercept: {intercept:.4f}")
-    for feature, contrib in sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True):
-        print(f"- {feature}: contribution = {contrib:.4f} (value: {patient_data[feature]}, weight: {coefficients.get(feature, 0):.4f})")
-    print(f"\nLinear combination (logit): {linear_combination:.4f}")
-    print(f"Predicted probability: {probability:.4f}")
-    print(f"Predicted class (threshold 0.5): {prediction}")
-    
-    return {
-        'intercept': intercept,
-        'linear_combination': linear_combination,
-        'predicted_probability': probability,
-        'predicted_class': prediction,
-        'feature_contributions': contributions
-    }
-    
-    return report
 
-def print_diagnostic_report(report, disease_name):
+def identify_important_features(model, data, top_n=10):
     """
-    Print a formatted diagnostic report
+    Identify important features in the Bayesian Network.
     
-    Parameters:
-    report (dict): Diagnostic report from generate_diagnostic_report
-    disease_name (str): Name of the disease being diagnosed
-    """
-    print("\n" + "="*50)
-    print(f"DIAGNOSTIC REPORT: {disease_name.upper()}")
-    print("="*50)
-    
-    probability = report['disease_probability']
-    print(f"Probability: {probability:.2%}")
-    
-    risk_level = "HIGH" if probability >= 0.7 else "MEDIUM" if probability >= 0.3 else "LOW"
-    print(f"Risk Level: {risk_level}")
-    
-    print("\nTop Contributing Factors:")
-    for factor, contribution in report['contributing_factors'].items():
-        direction = "INCREASES" if contribution > 0 else "DECREASES"
-        print(f"- {factor}: {direction} risk (contribution: {contribution:.4f})")
-    
-    print("\nRECOMMENDED ACTION:")
-    if probability >= 0.7:
-        print("Immediate medical attention recommended.")
-    elif probability >= 0.3:
-        print("Further testing recommended.")
-    else:
-        print("Monitor symptoms and follow up as needed.")
-    
-    print("="*50)
-
-def run_disease_prediction_workflow(data_path, target_disease_column, categorical_cols=None, numeric_cols=None):
-    """
-    Run the complete workflow for disease prediction
-    
-    Parameters:
-    data_path (str): Path to the dataset
-    target_disease_column (str): Name of the column indicating presence of disease
-    categorical_cols (list): List of categorical columns
-    numeric_cols (list): List of numeric columns to standardize
-    
+    Args:
+        model: The Bayesian Network model
+        data (pd.DataFrame): Data used to build the model
+        top_n (int): Number of top features to display
+        
     Returns:
-    tuple: (model, trace, coefficients, X_test, feature_names)
+        list: List of important features
     """
-    # Load data
-    print("\nSTEP 1: Loading Data")
-    print("-"*50)
-    df = load_data(data_path)
-    if df is None:
-        return None
+    print("Identifying important features...")
     
-    # Explore data
-    print("\nSTEP 2: Exploring Data")
-    print("-"*50)
-    stats = explore_data(df)
+    # Get node degrees (number of connections)
+    G = nx.DiGraph()
+    for edge in model.edges():
+        G.add_edge(edge[0], edge[1])
     
-    # If categorical and numeric columns are not provided, make an educated guess
-    if categorical_cols is None:
-        categorical_cols = stats['categorical_columns']
+    # Get degree centrality
+    centrality = nx.degree_centrality(G)
     
-    if numeric_cols is None:
-        numeric_cols = stats['numeric_columns']
+    # Sort features by centrality
+    sorted_features = sorted(centrality.items(), key=lambda x: x[1], reverse=True)
     
-    # Preprocess data
-    print("\nSTEP 3: Preprocessing Data")
-    print("-"*50)
-    X_train, X_test, y_train, y_test, scaler, processed_df = preprocess_data(
-        df, target_disease_column, categorical_cols, numeric_cols
-    )
+    # Display top features
+    print("\nTop features by network centrality:")
+    for feature, score in sorted_features[:top_n]:
+        if feature != 'diagnosis':  # Exclude the target variable
+            print(f"{feature}: {score:.4f}")
     
-    # Get feature names after preprocessing
-    feature_names = X_train.columns.tolist()
-    
-    # Build Bayesian model
-    print("\nSTEP 4: Building Bayesian Model")
-    print("-"*50)
-    model, trace, coefficients = build_bayesian_model(
-        X_train.values, y_train.values, feature_names
-    )
-    
-    # Evaluate model
-    print("\nSTEP 5: Evaluating Model")
-    print("-"*50)
-    metrics, y_pred_proba = evaluate_model(model, trace, X_test.values, y_test.values)
-    
-    # Visualize results
-    print("\nSTEP 6: Visualizing Results")
-    print("-"*50)
-    visualize_results(trace, coefficients, feature_names, X_test.values, y_test.values, y_pred_proba)
-    
-    return model, trace, coefficients, X_test, feature_names, processed_df
+    # Return important features (excluding the target variable)
+    return [f for f, _ in sorted_features if f != 'diagnosis']
 
-def predict_for_new_patient(coefficients, feature_names, patient_data, disease_name):
-    """
-    Predict disease probability for a new patient
-    
-    Parameters:
-    coefficients (dict): Model coefficients
-    feature_names (list): Names of the features
-    patient_data (dict): Dictionary of patient data (feature name -> value)
-    disease_name (str): Name of the disease
-    
-    Returns:
-    dict: Diagnostic report
-    """
-    # Convert patient data to the correct format
-    patient_array = np.zeros(len(feature_names))
-    for i, feature in enumerate(feature_names):
-        if feature in patient_data:
-            patient_array[i] = patient_data[feature]
-    
-    # Generate report
-    report = generate_diagnostic_report(coefficients, patient_array, feature_names)
-    print_diagnostic_report(report, disease_name)
-    
-    return report
 
-# Main execution function
 def main():
-    """Main function to execute the diagnostic workflow"""
+    # Set random seed for reproducibility
+    np.random.seed(42)
     
-    # File path to the dataset
-    file_path = r"C:\Users\emese\Desktop\TreatmentFlow\BayesNets\symbipredict_2022.csv"
+    # Define file path
+    file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
     
-    # Example execution of the workflow 
-    # You'll need to replace 'disease_target' with your actual target column name
-    # and update categorical_cols and numeric_cols based on your data
+    # Load and preprocess the data
+    train_data, X_test, y_test, all_columns, diagnosis_map = load_and_preprocess_data(file_path)
     
-    print("="*80)
-    print("TREATMENT FLOW: BAYESIAN NETWORK DISEASE DIAGNOSTIC SYSTEM")
-    print("="*80)
+    # Learn the Bayesian Network structure
+    structure = learn_structure(train_data, scoring_method='bic', max_indegree=5)
     
-    # Run the workflow
-    # Note: This is a placeholder - you should update these parameters based on your actual dataset
-    model, trace, coefficients, X_test, feature_names, processed_df = run_disease_prediction_workflow(
-        data_path=file_path,
-        target_disease_column='disease_target',  # Replace with actual target column
-        categorical_cols=None,  # Will be auto-detected if None
-        numeric_cols=None       # Will be auto-detected if None
-    )
+    # Build and train the model
+    model = build_and_train_model(structure, train_data)
     
-    # Example: Predict for a new patient
-    # Note: This is a placeholder - you should update with actual patient data
-    print("\nSTEP 7: Generating Sample Diagnostic Report")
-    print("-"*50)
+    # Visualize the network
+    visualize_network(model, save_path="bayesian_network.png")
     
-    # Example patient data (replace with actual features from your model)
-    sample_patient = {}
-    for feature in feature_names:
-        # Use random data for demonstration
-        # In a real application, this would come from the patient's triage data
-        if 'age' in feature.lower():
-            sample_patient[feature] = 65  # Example age
-        elif 'gender' in feature.lower() or 'sex' in feature.lower():
-            sample_patient[feature] = 1   # Example gender encoding
-        else:
-            # Random value for other features
-            sample_patient[feature] = np.random.randint(0, 2)
+    # Identify important features
+    important_features = identify_important_features(model, train_data)
     
-    # Generate diagnostic report
-    predict_for_new_patient(
-        coefficients, 
-        feature_names, 
-        sample_patient, 
-        "Example Disease"  # Replace with actual disease name
-    )
+    # Evaluate the model
+    accuracy = evaluate_model(model, X_test, y_test, diagnosis_map)
     
-    print("\nWorkflow completed successfully!")
+    # Example prediction
+    print("\nExample prediction:")
+    # Randomly select a test case
+    test_case = X_test.sample(1).iloc[0]
+    evidence = test_case.to_dict()
+    
+    # Make prediction
+    prediction = predict_diagnosis(model, evidence)
+    predicted_code = prediction['diagnosis']
+    predicted_diagnosis = diagnosis_map[predicted_code]
+    
+    print(f"Evidence: {evidence}")
+    print(f"Predicted diagnosis: {predicted_diagnosis}")
+    
+    # Compare with actual diagnosis
+    actual_code = y_test.iloc[X_test.index.get_loc(test_case.name)]
+    actual_diagnosis = diagnosis_map[actual_code]
+    print(f"Actual diagnosis: {actual_diagnosis}")
+    
+    print("\nBayesian Network analysis complete!")
+
 
 if __name__ == "__main__":
     main()
