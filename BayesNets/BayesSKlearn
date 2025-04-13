@@ -511,32 +511,25 @@ def main():
     Main function to run the disease diagnosis tool with bedside document generation
     """
     file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
+    print("\nLoading data...")
     data = load_data(file_path)
+    print("\nPreprocess Data...")
     X, y = preprocess_data(data)    
+    print("\nTrain Bayes Network Model...")
     X_train, X_test, y_train, y_test = train_test_data_split(X, y)
     model = train_model(X_train, y_train)
+    print("\nEvaluate Model...")
     y_pred, accuracy = evaluate_model(model, X_test, y_test)
     print(f"Model accuracy on test set: {accuracy:.4f}")
+    print("\nPerform Cross Validation...")
     cv_scores = perform_cross_validation(model, X, y)
     # Plot confusion matrix
     plot_confusion_matrix(y_test, y_pred, model.classes_)
     
     # Show cross-validation results
     print(f"Cross-validation accuracy: {cv_scores.mean():.4f}")
-    while True:
-        print("\nOptions:")
-        print("1. Diagnose a patient")
-        print("2. Exit")
-        
-        choice = input("Enter your choice (1-2): ").strip()
-        
-        if choice == '1':
-            interactive_diagnosis(model, X.columns)
-        elif choice == '2':
-            print("Exiting program.")
-            break
-        else:
-            print("Invalid choice. Please try again.")
+    print("\nDiagnose a patient: ")
+    interactive_diagnosis(model, X.columns)
     
 
 if __name__ == "__main__":
