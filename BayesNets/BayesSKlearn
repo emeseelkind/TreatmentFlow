@@ -1,36 +1,278 @@
-from sklearn.naive_bayes import BernoulliNB
-from sklearn.model_selection import train_test_split
 import pandas as pd
-
 import numpy as np
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-data = pd.read_csv('symbipredict_2022.csv')
+# Load the dataset
+data = pd.read_csv("../TreatmentFlow/BayesNets/symbipredict_2022.csv")
 
 # Split into features (X) and target (y)
 X = data.drop('prognosis', axis=1)
 y = data['prognosis']
 
-# Train-test split
+# Train-test split (80% train, 20% test)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Train Naive Bayes model (Bernoulli for binary features)
-model = BernoulliNB()
+# Train Bernoulli Naive Bayes model (appropriate for binary features)
+model = BernoulliNB(alpha=1.0)  # alpha is the Laplace/Lidstone smoothing parameter
 model.fit(X_train, y_train)
 
-# Evaluation
+# Make predictions on test set
+y_pred = model.predict(X_test)
+
+# Model evaluation
 accuracy = model.score(X_test, y_test)
 print(f"Accuracy: {accuracy:.4f}")
 
-# Example prediction with probabilities
+# Detailed classification report
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+# Cross-validation scores
+cv_scores = cross_val_score(model, X, y, cv=5)
+print(f"\nCross-validation scores: {cv_scores}")
+print(f"Mean CV score: {cv_scores.mean():.4f}")
+
+# Function for predicting disease from symptoms
 def predict_disease(symptoms_dict):
-    # Convert symptoms dict to array in correct order
-    symptoms_array = np.zeros(len(X.columns))
+    """
+    Predict disease probabilities based on provided symptoms
+    
+    Parameters:
+    -----------
+    symptoms_dict : dict
+        Dictionary with symptom names as keys and 0/1 as values
+        
+    Returns:
+    --------
+    dict
+        Disease names and their probabilities, sorted by probability
+    """
+    # Create a DataFrame with all symptoms set to 0
+    patient = pd.DataFrame(np.zeros((1, len(X.columns))), columns=X.columns)
+    
+    # Set the provided symptoms to 1
     for symptom, value in symptoms_dict.items():
-        if symptom in X.columns:
-            idx = X.columns.get_loc(symptom)
-            symptoms_array[idx] = value
+        if symptom in patient.columns:
+            patient[symptom] = value
+        else:
+            print(f"Warning: Symptom '{symptom}' not recognized and will be ignored")
     
     # Get probabilities for all diseases
-    probs = model.predict_proba([symptoms_array])[0]
+    probs = model.predict_proba(patient)[0]
+    
+    # Map probabilities to disease names and sort
     disease_probs = dict(zip(model.classes_, probs))
-    return disease_probs
+    sorted_disease_probs = {k: v for k, v in sorted(disease_probs.items(), 
+                                                   key=lambda item: item[1], 
+                                                   reverse=True)}
+    
+    return sorted_disease_probs
+
+# Example function for diagnosing a patient
+def diagnose_patient(symptoms_dict, top_n=5):
+    """
+    Diagnose a patient based on reported symptoms
+    
+    Parameters:
+    -----------
+    symptoms_dict : dict
+        Dictionary with symptom names as keys and 0/1 as values
+    top_n : int
+        Number of top diagnoses to return
+        
+    Returns:
+    --------
+    List of tuples (disease, probability)
+    """
+    disease_probs = predict_disease(symptoms_dict)
+    
+    # Get top N diseases with highest probabilities
+    top_diseases = list(disease_probs.items())[:top_n]
+    
+    return top_diseases
+
+# Function to identify most important symptoms for a given disease
+def important_symptoms_for_disease(disease_name, top_n=10):
+    """
+    Identify the most important symptoms for a given disease based on feature probabilities
+    
+    Parameters:
+    -----------
+    disease_name : str
+        Name of the disease
+    top_n : int
+        Number of top symptoms to return
+        
+    Returns:
+    --------
+    dict
+        Symptom names and their importance scores
+    """
+    if disease_name not in model.classes_:
+        return f"Disease '{disease_name}' not found in the model's classes"
+    
+    # Get the disease index
+    disease_idx = np.where(model.classes_ == disease_name)[0][0]
+    
+    # Get feature log probabilities for the disease
+    feature_probs = model.feature_log_prob_[disease_idx]
+    
+    # Create a dictionary of symptom names and their importance
+    importance = {}
+    for i, symptom in enumerate(X.columns):
+        # Convert log probability back to probability and use the difference
+        # between P(symptom=1|disease) and P(symptom=1) as importance
+        prob_symptom_given_disease = np.exp(feature_probs[i])
+        importance[symptom] = prob_symptom_given_disease
+    
+    # Sort and get top N symptoms
+    sorted_importance = {k: v for k, v in sorted(importance.items(), 
+                                              key=lambda item: item[1], 
+                                              reverse=True)}
+    
+    return dict(list(sorted_importance.items())[:top_n])
+
+# Visualization function for disease diagnosis
+def plot_diagnosis(symptoms_dict, top_n=5):
+    """
+    Plot the top N probable diseases based on symptoms
+    
+    Parameters:
+    -----------
+    symptoms_dict : dict
+        Dictionary with symptom names as keys and 0/1 as values
+    top_n : int
+        Number of top diagnoses to show
+    """
+    disease_probs = predict_disease(symptoms_dict)
+    
+    # Get top N diseases
+    top_diseases = list(disease_probs.items())[:top_n]
+    diseases, probs = zip(*top_diseases)
+    
+    # Create bar plot
+    plt.figure(figsize=(10, 6))
+    bars = plt.bar(diseases, probs)
+    
+    # Add probability values on top of bars
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height,
+                f'{height:.2f}', ha='center', va='bottom')
+    
+    plt.xlabel('Disease')
+    plt.ylabel('Probability')
+    plt.title('Disease Diagnosis Probabilities')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.show()
+
+# Example 1: Diagnosing a patient with fungal infection symptoms
+fungal_symptoms = {
+    'itching': 1,
+    'skin_rash': 1,
+    'nodal_skin_eruptions': 1,
+    'dischromic _patches': 1
+}
+
+print("\nExample 1 - Fungal Infection Symptoms:")
+top_diagnoses = diagnose_patient(fungal_symptoms)
+for disease, prob in top_diagnoses:
+    print(f"{disease}: {prob:.4f}")
+
+# Example 2: Diagnosing a patient with malaria symptoms
+malaria_symptoms = {
+    'chills': 1,
+    'vomiting': 1,
+    'high_fever': 1,
+    'sweating': 1,
+    'headache': 1,
+    'nausea': 1,
+    'muscle_pain': 1
+}
+
+print("\nExample 2 - Malaria Symptoms:")
+top_diagnoses = diagnose_patient(malaria_symptoms)
+for disease, prob in top_diagnoses:
+    print(f"{disease}: {prob:.4f}")
+
+# Create a confusion matrix visualization
+def plot_confusion_matrix():
+    """Plot the confusion matrix for model evaluation"""
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=model.classes_, yticklabels=model.classes_)
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.xticks(rotation=90)
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.show()
+
+# Example usage of the functions:
+# 1. Plot diagnosis for malaria symptoms
+# plot_diagnosis(malaria_symptoms)
+
+# 2. Show important symptoms for a specific disease
+print("\nTop symptoms for Malaria:")
+malaria_symptoms_importance = important_symptoms_for_disease("Malaria")
+for symptom, importance in malaria_symptoms_importance.items():
+    print(f"{symptom}: {importance:.4f}")
+
+# 3. Plot confusion matrix
+# plot_confusion_matrix()
+
+# Interactive diagnosis function
+def interactive_diagnosis():
+    """
+    Interactive command-line tool for diagnosing based on symptoms
+    """
+    print("\n=== Disease Diagnosis Tool ===")
+    print("Enter symptoms you are experiencing (1 for yes, 0 for no, or press Enter to skip)")
+    
+    # Get the most common symptoms to ask about
+    common_symptoms = sorted(X.columns, key=lambda col: X[col].sum(), reverse=True)[:15]
+    
+    symptoms_dict = {}
+    for symptom in common_symptoms:
+        response = input(f"Do you have {symptom.replace('_', ' ')}? (1/0/Enter): ").strip()
+        if response == '1':
+            symptoms_dict[symptom] = 1
+        elif response == '0':
+            symptoms_dict[symptom] = 0
+    
+    print("\nBased on your symptoms, the most likely diagnoses are:")
+    top_diagnoses = diagnose_patient(symptoms_dict)
+    for disease, prob in top_diagnoses:
+        print(f"{disease}: {prob:.4f}")
+    
+    # Ask if they want to see the most indicative symptoms for the top disease
+    top_disease = top_diagnoses[0][0]
+    response = input(f"\nWould you like to see the key symptoms for {top_disease}? (y/n): ")
+    if response.lower() == 'y':
+        print(f"\nMost indicative symptoms for {top_disease}:")
+        key_symptoms = important_symptoms_for_disease(top_disease)
+        for symptom, importance in key_symptoms.items():
+            print(f"{symptom.replace('_', ' ')}: {importance:.4f}")
+
+
+def main():
+    """
+    Main function to run the disease diagnosis tool
+    """
+    print("Welcome to the Disease Diagnosis Tool!")
+    
+    interactive_diagnosis()
+    
+    plot_confusion_matrix()
+
+    plot_diagnosis(fungal_symptoms)
+
+if __name__ == "__main__":
+    main()
