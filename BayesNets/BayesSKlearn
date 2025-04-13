@@ -272,7 +272,10 @@ def plot_confusion_matrix(y_test, y_pred, classes):
     plt.xticks(rotation=90)
     plt.yticks(rotation=0)
     plt.tight_layout()
-    plt.show()
+    plt.savefig('BayesNets/confusion_matrix.png')
+    plt.close()
+    print("\nConfusion matrix saved as 'confusion_matrix.png'")
+
 
 def interactive_diagnosis(model, X_columns):
     """
