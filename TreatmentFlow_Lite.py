@@ -12,7 +12,6 @@ Text-based UI for interacting with all 3 components of TreatmentFlow:
 
 from CSP.HospitalClasses import Patient, HospitalRecords, print_time
 from CSP.GreedyBedAssignment import Scheduler
-# from DeepLearning import DeepLearning as dl
 from DeepLearning import DLRaw as dl
 import os
 import numpy as np
@@ -35,12 +34,6 @@ class PatientDatabase:
         
         # note that user values are not yet set
         self.user_id = -1
-        
-        # # load pandas patient directory (from CTAS spreadsheets)
-        # current_dir = os.path.dirname(__file__)
-        # patient_samples_dir = os.path.join(current_dir, "CTAS_files")
-        # print("TRYING TO FIND DLRaw")
-        # self.df = dl.load_data(patient_samples_dir)
 
     def update_hospital(self, num_beds):
         # set number of beds
@@ -56,47 +49,11 @@ class PatientDatabase:
         patient["id"] = self.user_id
         patient["arrival"] = arrival
 
-        # UNNECESSARY CONDITIONAL **********
-        if isinstance(symptoms, dict):
-            # process triage info (input into db in proper format) COMPLETE THIS SECTION
-            
-            print("Predicting CTAS value with DL...")
+        print("Predicting CTAS value with DL...")
 
-            # return randomized patient stats, predict CTAS value with DL
-            user_symptoms, patient["ctas"] = self.dl.predict_esi(symptoms)
-            patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
-
-
-            # symptoms_df, patient["ctas"] = self.dl.predict_esi(symptoms)
-            # patient["symptoms"] = symptoms_df.to_dict(orient='records')[0]
-            
-            
-            
-            # # randomize base patient and update values based on triage
-            # patient["ctas"] = self.dl.predict_esi(self, symptoms)
-
-        else:
-            # randomize symptoms by picking a random patient
-            print("Randomizing user symptoms...")
-            print("Predicting CTAS value with DL...")
-
-            # # PREPROCESS USER INFO
-            # random_index = np.random.choice(len(self.df))
-            # random_row = self.df.iloc[random_index]
-            # random_row = random_row.drop("esi")
-
-            # sample_indices = np.random.choice(range(len(self.dl.df)), size=self.num_patients-1, replace=False)
-            # sample_df = self.dl.df.iloc[sample_indices]
-            # ctas_values = sample_df["esi"]
-            # sample_patients = sample_df.drop('esi', axis=1)
-
-            # randomize patient and predict CTAS priority value with DL
-            
-            user_symptoms, patient["ctas"] = self.dl.predict_esi()
-            patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
-
-            # symptoms_df, patient["ctas"] = self.dl.predict_esi()
-            # patient["symptoms"] = symptoms_df.to_dict(orient='records')[0]
+        # return randomized patient stats, predict CTAS value with DL
+        user_symptoms, patient["ctas"] = self.dl.predict_esi(symptoms)
+        patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
 
         self.patient_db.insert(0, patient)
         self.user_id = 0
@@ -116,17 +73,6 @@ class PatientDatabase:
         sample_df = self.dl.df.iloc[sample_indices]
         ctas_values = sample_df["esi"]
         sample_patients = sample_df.drop('esi', axis=1)
-
-
-        # # PRIMITIVE 
-        # sample_indices = np.random.choice(range(len(self.df)), size=self.num_patients-1, replace=False)        
-        # sample_df = self.df.iloc[sample_indices]
-        # ctas_values = sample_df["esi"]
-        # sample_patients = sample_df.drop('esi', axis=1)
-        # # sample_patients = self.df.drop('esi', axis=1).iloc[sample_indices]             
-        # # END OF PRIMITIVE
-
-        # formatted_patients = self.dl.format_patient_rows(sample_patients)
 
         i = 0
         for ctas, row in zip(ctas_values, sample_patients.to_dict(orient='records')):
@@ -343,7 +289,6 @@ class Menu:
         # return symptom dictionary
         return user
 
-
     def observe_patient(self, patient_id):
         if self.patient_data.user_id < 0:
             patient_dict = self.patient_data.patient_db[patient_id - 1]
@@ -455,6 +400,8 @@ class Menu:
                     self.num_patients = self.select_int("Number of patients", 1, 7000)
                     self.patient_data.num_patients = self.num_patients
 
+                    # FLAG: ERROR WITH DUPLICATING PATIENT INSTANCES IN THE HOSPITAL WHEN WORKING WITH WAIT TIMES
+
                     # randomly sampling existing patient profile
                     self.patient_data.fill_db()
 
@@ -500,6 +447,7 @@ class Menu:
 
                 case 4:
                     return
+
 
 my_menu = Menu()
 my_menu.run_menu()
