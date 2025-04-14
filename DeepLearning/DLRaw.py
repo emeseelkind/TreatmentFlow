@@ -19,8 +19,6 @@ sklearn and tensorflow libraries used for data preprocessing and deep learning m
 """
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 # Splitting Data into Training & Test Sets
 from sklearn.model_selection import train_test_split
 # Feature Scaling & Encoding Categorical Variables
@@ -30,15 +28,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 # For building the deep learning model
 from sklearn.neural_network import MLPClassifier
-# For evaluating the model
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.model_selection import GridSearchCV
-# For saving the model
-import joblib
 # For timing the training process
 import time
 import os
-
 
 class DeepLearningTriage:
 
@@ -64,7 +56,6 @@ class DeepLearningTriage:
 
         print(f"\nTriage Model Built and Trained in {(time.time() - start_time):.2f} seconds")
 
-
     def load_data(self, directory):
 
         # build dataframe from CTAS database
@@ -75,6 +66,7 @@ class DeepLearningTriage:
             if filename.endswith(".csv"):
                 file_path = os.path.join(directory, filename)
                 df = pd.read_csv(file_path)
+                df = df.dropna(subset=['esi']) # drop rows with missing esi values
                 
                 if 'esi' in df.columns:
                     combined_df = pd.concat([combined_df, df])
@@ -82,6 +74,47 @@ class DeepLearningTriage:
         combined_df = combined_df.reset_index(drop=True)
 
         return combined_df
+
+
+    def format_patient_rows(self, patients_set):
+        # lite preprocessing function made specifically for formatting each patient in hospital
+
+        # # Remove rows with NaN values in the target variable
+        # DataFrame = DataFrame.dropna(subset=['esi'])
+        
+        # # Convert 'esi' to int to ensure it's a proper class label
+        # DataFrame['esi'] = DataFrame['esi'].astype(int)
+        
+        # # Continue with the rest of preprocessing
+        # exclude_cols = ['dep_name', 'esi', 'lang', 'religion', 'maritalstatus', 'employstatus', 'insurance_status']
+        # feature_cols = [col for col in DataFrame.columns if col not in exclude_cols]
+        # num_features = DataFrame[feature_cols].select_dtypes(include=[np.number])
+        # cat_features = DataFrame[feature_cols].select_dtypes(include=['object', 'category', 'bool'])
+        
+
+        if 'esi' in patients_set.columns:
+            patients_set = patients_set.drop(columns=['esi'])
+
+        # Ensure column order matches training input
+        expected_cols = self.df.drop(columns=['esi']).columns
+        for col in expected_cols:
+            if col not in patients_set.columns:
+                patients_set[col] = 0  # or np.nan if preferred for imputation
+
+        patients_set = patients_set[expected_cols]  # re-order columns
+
+        # Transform using the existing fitted preprocessor
+        processed_array = self.preprocessor.transform(patients_set)
+
+        
+        # Retrieve output column names from the preprocessor
+        column_names = self.preprocessor.get_feature_names_out()
+
+        # Wrap the processed array back into a DataFrame
+        processed_df = pd.DataFrame(processed_array, columns=column_names)
+
+        return processed_df
+
 
     def preprocess_data(self, DataFrame):
         
@@ -160,13 +193,19 @@ class DeepLearningTriage:
     def predict_priority(self, model, sample_patient, preprocessor):
         """Predict patient priority using the trained model"""
 
+        # PREPROCESSING AGAIN COULD BE UNNECESSARY
         new_data_processed = preprocessor.transform(sample_patient)
+        
         # Get predictions
         prediction = model.predict(new_data_processed)
 
         return prediction
     
     def prep_dl(self):
+
+
+        # TESTING FUNCTION, DELETE IN FINAL ******************************************
+
         # current_dir = os.path.dirname(__file__)
         # parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
         # directory = os.path.join(parent_dir, 'CTAS_files')
@@ -191,29 +230,52 @@ class DeepLearningTriage:
         print("\nSample Patient Predictions:")
         print(f"Prediction: {result[0]}, Actual: {actual_esi}")
 
-    def predict_esi(self, patient_dict):
+    def predict_esi(self, patient_dict=None):
         # sample_index = np.random.choice(range(len(self.df)), size=1, replace=False)
         # sample_patient = self.df.drop('esi', axis=1).iloc[sample_index]
         # result = self.predict_priority(self.model, sample_patient, self.preprocessor)
 
+        # ISSUE: NEW SAMPLE PATIENT USED AT EACH INVOCATION
+        
+
         # Step 1: Sample one real patient row from the dataset (drop 'esi')
         sample_index = np.random.choice(range(len(self.df)), size=1, replace=False)
-        sample_patient = self.df.drop(columns=['esi']).iloc[sample_index].copy()
+        sample_patient = self.df.drop(columns=['esi']).iloc[sample_index]
 
-        # Step 2: Update sample patient with survey responses
-        for key, value in patient_dict.items():
-            if key in sample_patient.columns:
-                sample_patient[key] = value
+        # sample_patient = pd.DataFrame(sample_patient, columns=self.df.drop(columns=['esi']).columns)
 
-        # Step 3: Convert to DataFrame for preprocessing
-        patient_df = pd.DataFrame([sample_patient])
+        user_patient = sample_patient.copy()
+
+        # UPDATE SYMPTOMS BASED ON TRIAGE
+        # only update specific values if patient performs triage
+        if isinstance(patient_dict, dict):
+            # Step 2: Update sample patient with survey responses
+            for key, value in patient_dict.items():
+                if key in user_patient.columns:
+                    # THIS DICT ACCESSING MAY NOT WORK WITH NP DF
+                    user_patient.at[0, key] = value
+
+        # format sample patient to fit model before changing
+        # formatted_patient = self.format_patient_rows(sample_patient)
+
+
+        # # patient_df = pd.DataFrame([sample_patient])
+        # # Step 4: Match column set and order to training data
+        # expected_cols = self.df.drop(columns=['esi']).columns
+        # for col in expected_cols:
+        #     if col not in sample_patient.columns:
+        #         sample_patient[col] = 0  # set column to dummy value
+
+        # fit df to correct column order & values
+        # sample_patient = sample_patient[expected_cols]
+
 
         # Step 4: Predict priority
-        prediction = self.predict_priority(self.model, patient_df, self.preprocessor)
+        prediction = self.predict_priority(self.model, user_patient, self.preprocessor)
 
         # Step 5: Output result
         print(f"\nPredicted ESI: {prediction[0]}")
-        return prediction[0]
+        return user_patient, prediction[0]
 
 
 

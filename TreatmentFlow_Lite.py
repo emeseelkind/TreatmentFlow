@@ -12,7 +12,8 @@ Text-based UI for interacting with all 3 components of TreatmentFlow:
 
 from CSP.HospitalClasses import Patient, HospitalRecords, print_time
 from CSP.GreedyBedAssignment import Scheduler
-from DeepLearning import DeepLearning as dl
+# from DeepLearning import DeepLearning as dl
+from DeepLearning import DLRaw as dl
 import os
 import numpy as np
 import random
@@ -22,6 +23,10 @@ import numbers
 class PatientDatabase:
 
     def __init__(self, num_patients, num_beds):
+
+        # create dl model
+        self.dl = dl.DeepLearningTriage()
+
         self.num_patients = num_patients
         
         # create databases
@@ -31,10 +36,11 @@ class PatientDatabase:
         # note that user values are not yet set
         self.user_id = -1
         
-        # load pandas patient directory (from CTAS spreadsheets)
-        current_dir = os.path.dirname(__file__)
-        patient_samples_dir = os.path.join(current_dir, "CTAS_files")
-        self.df = dl.load_data_printless(patient_samples_dir)
+        # # load pandas patient directory (from CTAS spreadsheets)
+        # current_dir = os.path.dirname(__file__)
+        # patient_samples_dir = os.path.join(current_dir, "CTAS_files")
+        # print("TRYING TO FIND DLRaw")
+        # self.df = dl.load_data(patient_samples_dir)
 
     def update_hospital(self, num_beds):
         # set number of beds
@@ -50,18 +56,47 @@ class PatientDatabase:
         patient["id"] = self.user_id
         patient["arrival"] = arrival
 
+        # UNNECESSARY CONDITIONAL **********
         if isinstance(symptoms, dict):
-            # process triage info (input into db in proper format)
-            patient["symptoms"] = symptoms
+            # process triage info (input into db in proper format) COMPLETE THIS SECTION
+            
+            print("Predicting CTAS value with DL...")
+
+            # return randomized patient stats, predict CTAS value with DL
+            user_symptoms, patient["ctas"] = self.dl.predict_esi(symptoms)
+            patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
+
+
+            # symptoms_df, patient["ctas"] = self.dl.predict_esi(symptoms)
+            # patient["symptoms"] = symptoms_df.to_dict(orient='records')[0]
+            
+            
+            
+            # # randomize base patient and update values based on triage
+            # patient["ctas"] = self.dl.predict_esi(self, symptoms)
+
         else:
-            # randomize symptoms
+            # randomize symptoms by picking a random patient
             print("Randomizing user symptoms...")
-            random_index = np.random.choice(len(self.df))
-            random_row = self.df.iloc[random_index].drop("esi")
+            print("Predicting CTAS value with DL...")
 
-            patient["symptoms"] = random_row
+            # # PREPROCESS USER INFO
+            # random_index = np.random.choice(len(self.df))
+            # random_row = self.df.iloc[random_index]
+            # random_row = random_row.drop("esi")
 
-        patient["ctas"] = int(0) # ** MUST USE DL TO PREDICT SYMPTOMS IN FINAL PRODUCT
+            # sample_indices = np.random.choice(range(len(self.dl.df)), size=self.num_patients-1, replace=False)
+            # sample_df = self.dl.df.iloc[sample_indices]
+            # ctas_values = sample_df["esi"]
+            # sample_patients = sample_df.drop('esi', axis=1)
+
+            # randomize patient and predict CTAS priority value with DL
+            
+            user_symptoms, patient["ctas"] = self.dl.predict_esi()
+            patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
+
+            # symptoms_df, patient["ctas"] = self.dl.predict_esi()
+            # patient["symptoms"] = symptoms_df.to_dict(orient='records')[0]
 
         self.patient_db.insert(0, patient)
         self.user_id = 0
@@ -77,11 +112,21 @@ class PatientDatabase:
             self.patient_db.append(temp)
 
         # sample patients from database
-        sample_indices = np.random.choice(range(len(self.df)), size=self.num_patients-1, replace=False)        
-        sample_df = self.df.iloc[sample_indices]
+        sample_indices = np.random.choice(range(len(self.dl.df)), size=self.num_patients-1, replace=False)
+        sample_df = self.dl.df.iloc[sample_indices]
         ctas_values = sample_df["esi"]
         sample_patients = sample_df.drop('esi', axis=1)
-        # sample_patients = self.df.drop('esi', axis=1).iloc[sample_indices]             
+
+
+        # # PRIMITIVE 
+        # sample_indices = np.random.choice(range(len(self.df)), size=self.num_patients-1, replace=False)        
+        # sample_df = self.df.iloc[sample_indices]
+        # ctas_values = sample_df["esi"]
+        # sample_patients = sample_df.drop('esi', axis=1)
+        # # sample_patients = self.df.drop('esi', axis=1).iloc[sample_indices]             
+        # # END OF PRIMITIVE
+
+        # formatted_patients = self.dl.format_patient_rows(sample_patients)
 
         i = 0
         for ctas, row in zip(ctas_values, sample_patients.to_dict(orient='records')):
@@ -455,7 +500,6 @@ class Menu:
 
                 case 4:
                     return
-
 
 my_menu = Menu()
 my_menu.run_menu()
