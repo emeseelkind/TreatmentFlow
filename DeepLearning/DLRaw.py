@@ -168,7 +168,9 @@ class DeepLearningTriage:
 
         # only update specific values if patient performs triage
         if isinstance(patient_dict, dict):
-            # Step 2: Update sample patient with survey responses
+            
+            # FLAG - dictionary is not being returned with the proper updated values
+
             for key, value in patient_dict.items():
                 if key in sample_patient.columns:
                     # THIS DICT ACCESSING MAY NOT WORK WITH NP DF
