@@ -46,6 +46,31 @@ Step 2: Load and Preprocess the Data.
     prepare the data by cleaning and preprocessing it
 """
 
+def load_data_printless():
+
+    # find source directory
+    current_dir = os.path.dirname(__file__)
+    parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+    directory = os.path.join(parent_dir, 'CTAS_files')
+
+    # create df to be combined, modified and returned
+    combined_df = pd.DataFrame()
+    
+    # Loop through all CSV files in the directory
+    for filename in os.listdir(directory):
+        if filename.endswith(".csv"):
+            file_path = os.path.join(directory, filename)
+            df = pd.read_csv(file_path)
+            
+            if 'esi' in df.columns:
+                combined_df = pd.concat([combined_df, df])
+            
+    # remove NaN values from df, reset indices
+    combined_df = combined_df.dropna(subset=['esi'])
+    combined_df = combined_df.reset_index(drop=True)
+
+    return combined_df
+
 def load_data(directory):
     combined_df = pd.DataFrame()
     
