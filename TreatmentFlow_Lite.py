@@ -46,7 +46,7 @@ class PatientDatabase:
     def add_user_info(self, arrival, symptoms=None):
 
         patient = {}
-        patient["id"] = self.user_id
+        patient["id"] = 0
         patient["arrival"] = arrival
 
         print("Predicting CTAS value with DL...")
@@ -55,7 +55,14 @@ class PatientDatabase:
         user_symptoms, patient["ctas"] = self.dl.predict_esi(symptoms)
         patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
 
-        self.patient_db.insert(0, patient)
+        # add to local database
+        if self.user_id < 0: # MUST REPLACE INDEX 0 IF USER EXISTS
+            self.patient_db.insert(0, patient)
+            self.user_id = 0
+        else:
+            self.patient_db[0] = patient
+
+        # mark user as already set
         self.user_id = 0
 
     def fill_db(self):
@@ -86,17 +93,46 @@ class PatientDatabase:
 
             self.patient_db.append(patient)
 
-    def assign_beds(self, printing=False):
+    def assign_beds(self):
 
-        # add patients from patients db to hospital db
+        # MUST ONLY BE CALLED WHEN A CHANGE IS MADE - will randomize the service times of each patient
+
+        # reset patient list in hospital object
+        self.hospital.patient_list = []
+
+        # add patients from patients db to hospital object db
         for patient in self.patient_db:
             
+            # set patient object
             current_patient = Patient()
             current_patient.fill_patient_stats(patient["id"], patient["arrival"], patient["ctas"])
 
+            # insert patient object
             patient["object"] = current_patient
             self.hospital.patient_list.append(current_patient)
 
+    def assign_bed_to_user(self):
+
+        # special function to only adjust the user's object status, not other patients
+
+        # don't assign user if they are not set
+        if self.user_id == -1:
+            print("User cannot be assigned bed before being uploaded")
+            return
+        
+        # access patient dict
+        patient = self.patient_db[0]
+
+        # set patient object
+        current_patient = Patient()
+        current_patient.fill_patient_stats(patient["id"], patient["arrival"], patient["ctas"])
+
+        # insert patient object
+        patient["object"] = current_patient
+        self.hospital.patient_list[0] = current_patient
+ 
+    def run_hosp(self, printing):
+        self.hospital.reset_service()
         self.scheduler.run_hospital(printing)
 
 
@@ -335,7 +371,7 @@ class Menu:
 
     def access_patients(self):
         
-        self.patient_data.assign_beds()
+        self.patient_data.run_hosp(False)
 
         while True:
 
@@ -392,18 +428,25 @@ class Menu:
                     else:
                         self.patient_data.add_user_info(user_arrival)
 
+                    # only update user's object info, don't reset other service times
+                    self.patient_data.assign_bed_to_user()
+
                 case 2:
                     self.num_beds = self.select_int("Number of beds", 1, 1000)
                     self.patient_data.update_hospital(self.num_beds)
+
+                    # ensure patients are appropriately assigned
+                    self.patient_data.assign_beds()
 
                 case 3:
                     self.num_patients = self.select_int("Number of patients", 1, 7000)
                     self.patient_data.num_patients = self.num_patients
 
-                    # FLAG: ERROR WITH DUPLICATING PATIENT INSTANCES IN THE HOSPITAL WHEN WORKING WITH WAIT TIMES
-
                     # randomly sampling existing patient profile
                     self.patient_data.fill_db()
+
+                    # ensure patients are appropriately assigned
+                    self.patient_data.assign_beds()
 
                 case 4:
                     return
@@ -424,6 +467,9 @@ class Menu:
         self.patient_data.add_user_info(user_arrival)
         self.patient_data.fill_db()
 
+        # assign hospital beds
+        self.patient_data.assign_beds()
+
         while True:
 
             # core menu
@@ -436,16 +482,19 @@ class Menu:
             response = self.select_int("Choice", 1, 4)
             match response:
                 case 1:
+                    # access patient menu
                     self.access_patients()
 
                 case 2:
                     # print bed assignment updates
-                    self.patient_data.assign_beds(True)
+                    self.patient_data.run_hosp(True)
 
                 case 3:
+                    # access updates menu
                     self.update_stats()
 
                 case 4:
+                    # end services
                     return
 
 
