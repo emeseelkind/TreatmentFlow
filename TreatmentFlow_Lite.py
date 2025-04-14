@@ -60,7 +60,7 @@ class PatientDatabase:
         patient = {}
         patient["id"] = 0
         patient["arrival"] = arrival
-        patient["ctas"] = int(ctas)
+        patient["ctas"] = int(ctas.iloc[0])
         patient["symptoms"] = sample_symptoms.to_dict(orient='records')[0]
 
         # add to local database
