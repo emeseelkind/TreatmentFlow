@@ -14,6 +14,8 @@ from CSP.HospitalClasses import Patient, HospitalRecords, print_time
 from CSP.GreedyBedAssignment import Scheduler
 from DeepLearning import DLRaw as dl
 from DeepLearning import DeepLearning as deep1
+from BayesNets import BNRaw as bn
+from BayesNets import BayesSKlearn as bayes1
 import os
 import numpy as np
 import random
@@ -26,6 +28,11 @@ class PatientDatabase:
 
         # create dl model
         # self.dl = dl.DeepLearningTriage()
+
+        # create bn model
+        self.bn = bn.BayesNetsDiagnostics()
+
+
 
         # LOCALIZED DF necessary for debugging NON-DL issues
 
@@ -193,9 +200,10 @@ class Menu:
         user["triage_vital_dbp"] = self.select_int("Diastolic blood pressure", 25, 214)
         user["triage_vital_hr"] = self.select_int("Heart rate", 30, 280)
         user["triage_vital_temp"] = self.select_int("Body temperature (*F)", 90, 106)
-        user["triage_vital_o2"] = self.select_int("Oxygen saturation (%)", 60, 99)
 
-        # COULD HAVE QUESTION ABOUT CHIEF COMPLAINT
+        # IF triage_vital_temp >= 100 SET BN VALUE 'fever' TO TRUE
+
+        user["triage_vital_o2"] = self.select_int("Oxygen saturation (%)", 60, 99)
 
         # systems
         print("\nBodily systems (all answers y=1 or n=0):")
@@ -205,10 +213,15 @@ class Menu:
         user["cc_agitation"] = self.select_int("Agitiation", 0, 1)
         user["cc_blurredvision"] = self.select_int("Blurred vision", 0, 1)
 
+        # INSERT QUESTION FOR cc_fatigue AND MATCH FOR BN VALUE 'fatigue'
+
         # cardiovascular
         user["cc_chestpain"] = self.select_int("Chest pain", 0, 1)
 
         swelling = self.select_int("Experiencing swelling", 0, 1) # only ask about specific swelling if necessary
+
+        # SET BN VALUE 'swelling' TO MATCH swelling
+
         user["cc_legswelling"] = self.select_int("Legs swelling", 0, swelling)
         user["cc_armswelling"] = self.select_int("Arms swelling", 0, swelling)
         user["cc_facialswelling"] = self.select_int("Facial swelling", 0, swelling)
@@ -218,13 +231,30 @@ class Menu:
         # respiratory
         user["cc_shortnessofbreath"] = self.select_int("Shortness of breath", 0, 1)
         user["cc_dyspnea"] = user["cc_shortnessofbreath"]
+
+        # SET BN VALUE 'breathing' TO MATCH cc_shortnessofbreath
+
         user["cc_cough"] = self.select_int("Cough", 0, 1)
+
+        # SET BN VALUE 'cough' TO MATCH cc_cough
 
         # gastrointestinal
         user["cc_nausea"] = self.select_int("Nausea", 0, 1)
+
+        # SET BN VALUE 'nausea' TO MATCH cc_nausea
+
         user["cc_vomiting"] = self.select_int("Vomiting", 0, 1)
+
+        # SET BN VALUE 'vomiting' TO MATCH cc_nausea
+
         user["cc_emesis"] = user["cc_vomiting"]
+
+        # ADD QUESTION FOR cc_diarrhea AND UPDATE BN VALUE 'diarrhea'
+
         
+        # skin
+        # ADD QUESTION FOR cc_rash AND UPDATE BN VALUE 'rash'
+
         # genitourinary
         user["cc_dysuria"] = self.select_int("Difficulty or pain urinating", 0, 1)
         
@@ -235,8 +265,13 @@ class Menu:
         # master attribute, determines whether others can be true
         user["cc_pain"] = self.select_int("Experiencing pain", 0, 1)
 
+        # SET BN VALUE 'pain' TO MATCH cc_pain
+
         # head/face/neck
         hfn_pain = self.select_int("Pain in the head/face/neck", 0, user["cc_pain"])
+
+        # ADD QUESTION FOR cc_headache AND UPDATE BN VALUE 'headache'
+
         user["cc_headpain"] = self.select_int("Head pain", 0, hfn_pain)
         user["cc_dentalpain"] = self.select_int("Tooth pain", 0, hfn_pain)
         user["cc_earpain"] = self.select_int("Ear pain", 0, hfn_pain)
