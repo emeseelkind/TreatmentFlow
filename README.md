@@ -1,51 +1,32 @@
 # TreatmentFlow
 
-TreatmentFlow is an AI-based project for optimizing the flow of patients through the emergency room.
-It includes 3 major components:
-- Deep Learning-based patient priority assignment through an automated triage system
-- Constraint Optimization-based hospital bed assignment based on incoming patients and available resources
-- Bayesian Network-based diagnostic tools to produce bedside documents for doctors only, which display the probabilities of certain conditions based on symptom inputs
+**TreatmentFlow** is an AI-based system designed to optimize the flow of patients through the emergency room. It integrates three major AI components:
+- **Deep Learning-based Triage:** Automatically assigns patient priority using a trained neural network.
+- **Constraint Optimization for Bed Assignment:** Assigns hospital beds based on incoming patients and resource availability.
+- **Bayesian Network Diagnostics:** Generates bedside documents for doctors, displaying the probabilities of specific conditions based on observed symptoms.
 
-TreatmentFlow was originally created by Adam Neto and Emese Elkind during the months of February-April 2025 as a project for their third-year Queen's University School of Computing course: CISC 352 - Artificial Intelligence.
+TreatmentFlow was originally developed by **Adam Neto** and **Emese Elkind** from February to April 2025 as a project for **CISC 352 - Artificial Intelligence**, a third-year course at Queen’s University School of Computing.
 
 **Usage instructions:**
-- Run the TreatmentFlow_Lite.py file for access to our streamlined text-based UI for interacting with all 3 components of TreatmentFlow. Simulate a hospital with inputted patient and bed numbers.
-  - This first runs the Deep Learning component from the DeepLearningMLP file to: 
-    - Generate the confusion matrix
-    - View the model accuracy
-  - Then the Constraint Satisfaction component runs from the MIPBedAssignment file to compare the solutions between the MIP and Greedy approaches
-    - To check Greedy solutions alone, follow the following steps:
-      1. construct a hospital using the HosptialRecords class with a number of beds above 0
-      2. generate a list of patients using the gen_patient_list method with a number of patients above 0
-      3. construct a scheduler using the Schedule class and the hospital object
-      4. use the method(s) run_hospital() (and waiting_times()) to display the Greedy approach's output
-  - Finally the Bayesian Network component runs from the BayesSKlearn, which includes:
-    - A generator for the Bayesian Network that will be used to predict future diagnoses
-    - A document producer that will take a set of observed symptoms as input, and output the most likely diagnoses along with their symptoms
+- Install all required dependencies (see below).
+- Run the TreatmentFlow_Lite.py file for access to our streamlined text-based UI for interacting with all 3 components of TreatmentFlow. 
+  - **Deep Learning Component (DeepLearningMLP.py)**
+    - Generates the confusion matrix and displays model accuracy for patient priority.
+  - **Constraint Satisfaction Component (MIPBedAssignment.py)**
+    - Compares solutions from both Mixed-Integer Programming (MIP) and a Greedy algorithm
+    - To test Greedy-only scheduling:
+      1. Create a hospital using the HospitalRecords class with at least 1 bed.
+      2. Generate patients using the gen_patient_list() method.
+      3. Initialize a scheduler with the Schedule class using the hospital object.
+      4. Run run_hospital() and optionally waiting_times() to view Greedy algorithm results.
+  - **Bayesian Network Component (BayesSKlearn.py)**
+    - Generates the confusion matrix and displays model accuracy for diagnosis prediction.
+    - Takes symptom inputs and outputs likely diagnoses and related probabilities.
 
 # Installation Instructions
 
-Welcome to our course project! To get our code up and running, you must install pandas, pyreadr, Scikit Learn, and Google's OR Tools.
+Install the following Python packages before running the project:
 ```
 python -m pip install ortools
-```
-```
-pip install pandas pyreadr
-```
-```
-pip install pandas
-```
-```
-python -m pip install -U pip
-python -m pip install -U matplotlib
-```
-```
-pip install seaborn
-```
-```
-python -m pip install scikit-learn
-
-```
-```
-pip install pymc3
+pip install pandas pyreadr seaborn scikit-learn pymc3 matplotlib
 ```
