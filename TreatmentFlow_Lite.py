@@ -182,7 +182,7 @@ class Menu:
         # store user triage information from survey
         user = {}        
 
-        # minimum and maximum values set by full dataset min/max values
+        # minimum and maximum bound values set by full dataset min/max values
 
         print("\nTriage survey:")
 
@@ -202,6 +202,7 @@ class Menu:
         user["triage_vital_temp"] = self.select_int("Body temperature (*F)", 90, 106)
 
         # IF triage_vital_temp >= 100 SET BN VALUE 'fever' TO TRUE
+        # MAKE SPECIFIC CONDITIONS FOR LOW/HIGH FEVER (>= 100 mild, >= 103 high)
 
         user["triage_vital_o2"] = self.select_int("Oxygen saturation (%)", 60, 99)
 
@@ -212,8 +213,7 @@ class Menu:
         user["cc_anxiety"] = self.select_int("Anxiety", 0, 1)
         user["cc_agitation"] = self.select_int("Agitiation", 0, 1)
         user["cc_blurredvision"] = self.select_int("Blurred vision", 0, 1)
-
-        # INSERT QUESTION FOR cc_fatigue AND MATCH FOR BN VALUE 'fatigue'
+        user["cc_fatigue"] = self.select_int("Fatigue", 0, 1)
 
         # cardiovascular
         user["cc_chestpain"] = self.select_int("Chest pain", 0, 1)
@@ -243,17 +243,19 @@ class Menu:
 
         # SET BN VALUE 'nausea' TO MATCH cc_nausea
 
+        user["cc_emesis"] = self.select_int("Vomiting", 0, 1)
+
+        # SET BN VALUE 'vomiting' TO MATCH cc_emesis
+
         user["cc_vomiting"] = self.select_int("Vomiting", 0, 1)
-
-        # SET BN VALUE 'vomiting' TO MATCH cc_nausea
-
-        user["cc_emesis"] = user["cc_vomiting"]
+        user["cc_diarrhea"] = self.select_int("Diarrhea", 0, 1)
 
         # ADD QUESTION FOR cc_diarrhea AND UPDATE BN VALUE 'diarrhea'
 
         
         # skin
-        # ADD QUESTION FOR cc_rash AND UPDATE BN VALUE 'rash'
+        user["cc_rash"] = self.select_int("Skin rash", 0, 1)
+
 
         # genitourinary
         user["cc_dysuria"] = self.select_int("Difficulty or pain urinating", 0, 1)
@@ -271,7 +273,7 @@ class Menu:
         hfn_pain = self.select_int("Pain in the head/face/neck", 0, user["cc_pain"])
 
         # ADD QUESTION FOR cc_headache AND UPDATE BN VALUE 'headache'
-
+        user["cc_headache"] = self.select_int("Headache", 0, hfn_pain)
         user["cc_headpain"] = self.select_int("Head pain", 0, hfn_pain)
         user["cc_dentalpain"] = self.select_int("Tooth pain", 0, hfn_pain)
         user["cc_earpain"] = self.select_int("Ear pain", 0, hfn_pain)
