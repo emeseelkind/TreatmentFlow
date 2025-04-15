@@ -36,10 +36,12 @@ class DeepLearningTriage:
 
     def __init__(self):
 
+        # saving local data
         self.df = None
         self.model = None
         self.preprocessor = None
 
+        # find path to DL database
         current_dir = os.path.dirname(__file__)
         parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
         directory = os.path.join(parent_dir, 'CTAS_files')
