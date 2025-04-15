@@ -222,9 +222,17 @@ class BayesNetsDiagnostics:
         Takes in a patient from DL pd dataframe format
         Uses translation CSV to get a BN-format patient dict
         Uses this patient dict to invoke the diagnosis doc generator
+
+        Parameters:
+        patient : pandas dataframe with patient status
+        - X_columns : columns of symbipredict CSV (??)
         """
-        # takes in a patient from DL pd dataframe format
-        #
+
+        # TRANSLATE THE FORMAT OF THE PATIENT
+
+        # get the necessary info to run these functions
+        top_diagnoses = self.diagnose_patient(self.model, symptoms_dict, X_columns)
+        self.generate_bedside_document(patient_id, symptoms_dict, top_diagnoses, model, X_columns)
 
 
     def interactive_diagnosis(self, model, X_columns):
