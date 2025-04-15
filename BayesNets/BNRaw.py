@@ -217,6 +217,16 @@ class BayesNetsDiagnostics:
         plt.tight_layout()
         plt.show()
 
+    def diagnostic_doc_ext(self, patient):
+        """
+        Takes in a patient from DL pd dataframe format
+        Uses translation CSV to get a BN-format patient dict
+        Uses this patient dict to invoke the diagnosis doc generator
+        """
+        # takes in a patient from DL pd dataframe format
+        #
+
+
     def interactive_diagnosis(self, model, X_columns):
         """
         Interactive command-line tool for diagnosing based on symptoms
