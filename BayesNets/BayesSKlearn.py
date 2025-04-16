@@ -261,7 +261,9 @@ def plot_confusion_matrix(y_test, y_pred, classes):
     plt.xticks(rotation=90)
     plt.yticks(rotation=0)
     plt.tight_layout()
-    plt.savefig('BayesNets/confusion_matrix.png')
+    file_path = os.path.join(os.path.dirname(__file__), "confusion_matrix.png")
+    # plt.savefig('BayesNets/confusion_matrix.png')
+    plt.savefig(file_path)
     plt.close()
     print("\nConfusion matrix saved as 'confusion_matrix.png'")
 
@@ -500,7 +502,8 @@ def main():
     """
     Main function to run the disease diagnosis tool with bedside document generation
     """
-    file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
+    # file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
+    file_path = os.path.join(os.path.dirname(__file__), "symbipredict_2022.csv")
     print("\nLoading data...")
     data = load_data(file_path)
     print("\nPreprocess Data...")
