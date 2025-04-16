@@ -476,9 +476,10 @@ class Menu:
         print("\nWelcome to TreatmentFlow Lite!")
 
         # initial setup
-        self.num_patients = self.select_int("How many patients should be in the hospital?", 1, 7000)
+        print("\nPlease enter hospital simulation information:")
+        self.num_patients = self.select_int("\nHow many patients should be in the hospital?", 1, 7000)
         self.num_beds = self.select_int("How many beds should be in the hospital?", 1, 1000)
-
+        print("\n")
         # building database
         self.patient_data = PatientDatabase(self.num_patients, self.num_beds)
 
