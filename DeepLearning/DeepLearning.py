@@ -39,14 +39,16 @@ import joblib
 import time
 import os
 
-
-"""
-Step 2: Load and Preprocess the Data. 
+def load_data(directory):
+    """
+    Step 2: Load and Preprocess the Data. 
     collect labeled data relevant to your problem, 
     prepare the data by cleaning and preprocessing it
-"""
-
-def load_data(directory):
+    Args:
+        directory (str): Path to the directory containing the CSV files.
+    Returns:
+        pd.DataFrame: Combined DataFrame of all valid triage data with CTAS scores.
+    """
     combined_df = pd.DataFrame()
     
     # Loop through all CSV files in the directory
@@ -77,7 +79,14 @@ def load_data(directory):
     return combined_df
 
 def preprocess_data(DataFrame):
-    """Preprocess data for model training"""
+    """
+    Step 2: Load and Preprocess the Data. 
+    Preprocess data for model training
+    Args:
+        DataFrame (pd.DataFrame): DataFrame containing the triage data.
+    Returns:
+        Preprocessed training and testing data, target variable, and preprocessor.
+    """
     # First, let's handle NaN values in the target variable (esi)
     print(f"Before cleaning, DataFrame shape: {DataFrame.shape}")
     print(f"Number of NaN values in 'esi' column: {DataFrame['esi'].isna().sum()}")
@@ -123,13 +132,20 @@ def preprocess_data(DataFrame):
     x_train = preprocessor.fit_transform(x_train)
     x_test = preprocessor.transform(x_test)
     return x_train, x_test, y_train, y_test, preprocessor
-    
-"""
-Step 3: Build the Model. 
-    select a suitable machine learning algorithm, 
-"""
-def build_model(x_train, x_test, y_train, y_test):
-    """Build the deep learning model for priority prediction"""
+ 
+def build_model():
+    """
+    Step 3: Build the Model. 
+    Build the deep learning model for priority prediction
+    Args:
+        x_train (np.ndarray): Training features.
+        x_test (np.ndarray): Testing features.
+        y_train (np.ndarray): Training labels.
+        y_test (np.ndarray): Testing labels.
+    Returns:
+        model (MLPClassifier): The built deep learning model.
+        start_time (float): Start time for training.
+    """
     
     # Create an MLPClassifier (Multi-Layer Perceptron - Neural Network)
     start_time = time.time()
@@ -152,13 +168,19 @@ def build_model(x_train, x_test, y_train, y_test):
     print("\nModel created:")
     print(model)
     return model , start_time
-"""
-Step 4: Train the Model. 
-    train the model on the training data, 
-"""
+
 def train_model(model, start_time, x_train, y_train):
-    """Train the deep learning model"""
-    
+    """
+    Step 4: Train the Model. 
+    Train the deep learning model
+    Args:
+        model (MLPClassifier): The deep learning model.
+        start_time (float): Start time for training.
+        x_train (np.ndarray): Training features.
+        y_train (np.ndarray): Training labels.
+    Returns:
+        model (MLPClassifier): The trained deep learning model.
+    """
     # Train the model
     model.fit(x_train, y_train)
     # Calculate training time
@@ -171,12 +193,18 @@ def train_model(model, start_time, x_train, y_train):
     print("\nModel saved as patient_priority_model.pkl")
     return model
 
-"""
-Step 5: Evaluate the Model. 
-    - Evaluate its performance on a separate test set, 
-"""
 def evaluate_model(model, start_time, x_test, y_test):
-    """Evaluate the deep learning model"""
+    """
+    Step 5: Evaluate the Model. 
+    Evaluate the deep learning model
+    Args:
+        model (MLPClassifier): The trained deep learning model.
+        start_time (float): Start time for evaluation.
+        x_test (np.ndarray): Testing features.
+        y_test (np.ndarray): Testing labels.
+    Returns:
+        model (MLPClassifier): The trained deep learning model.
+    """
     # Evaluate the model
     y_pred = model.predict(x_test)
     accuracy = accuracy_score(y_test, y_pred)
@@ -206,12 +234,19 @@ def evaluate_model(model, start_time, x_test, y_test):
     total_time = end_time - start_time
     print(f"\nTotal time taken: {total_time:.2f} seconds")
     return model
-"""
-Step 6: Use the Model. 
-    - Deploy the model to make predictions on new data
-"""
+
 def predict_priority(model, sample_patients, preprocessor, priority_mapping):
-    """Predict patient priority using the trained model"""
+    """
+    Step 6: Use the Model. 
+    Predict patient priority using the trained model
+    Args:
+        model (MLPClassifier): The trained deep learning model.
+        sample_patients (pd.DataFrame): Sample patients for prediction.
+        preprocessor (ColumnTransformer): Preprocessor used for data preprocessing.
+        priority_mapping (dict): Mapping of priority levels to descriptions.
+    Returns:
+        pd.DataFrame: DataFrame containing predictions and probabilities.
+    """
     print("\nPredicting patient priority for sample patients...")
     new_data_processed = preprocessor.transform(sample_patients)
     # Get predictions
@@ -233,7 +268,6 @@ def predict_priority(model, sample_patients, preprocessor, priority_mapping):
     return results
 
 def main():
-    # Initialize the model
     print("\nWelcome to the TreatmentFlow Deep Learning module!")
     print("\n -------------------------------------------------------------------------")
     print("\nLoading data...")
@@ -251,8 +285,6 @@ def main():
     x_train, x_test, y_train, y_test, preprocessor = preprocess_data(DataFrame)
     print("Data loading and preprocessing complete.")
 
-
-
     # 5 levels of patient priority
     priority_mapping = {
             1: "Immediate (Resuscitation)",
@@ -264,7 +296,7 @@ def main():
     # Build the model
     print("\n -------------------------------------------------------------------------")
     print("\nBuilding deep learning model...")
-    model, start_time = build_model(x_train, x_test, y_train, y_test)
+    model, start_time = build_model()
     # Train the model
     print("\n -------------------------------------------------------------------------")
     print("\nTraining deep learning model...")
