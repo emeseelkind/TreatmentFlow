@@ -22,18 +22,20 @@ class BayesNetsDiagnostics:
 
     def __init__(self):
         
+        # SHOULD TRAIN MODEL ON 100% OF THE DATA, NOT 80%
+
         # load data from source db (symbipredict)
-        file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
+        file_path = os.path.join(os.path.dirname(__file__), "symbipredict_2022.csv")
+        # file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
         self.df = self.load_data(file_path)
 
         # process data before building model
         X, y = self.preprocess_data(self.df)
-        X_train, X_test, y_train, y_test = self.train_test_data_split(X, y)
+
+        # TRAIN MODEL ON 100% OF THE DATA, NOT 80%
 
         # build Bayesian Network
-        self.model = self.train_model(X_train, y_train)
-
-        # TODO: RECREATE INTERACTIVE DIAGNOSIS
+        self.model = self.train_model(X, y)
 
     def load_data(self, file_path):
         """
@@ -217,22 +219,82 @@ class BayesNetsDiagnostics:
         plt.tight_layout()
         plt.show()
 
-    def diagnostic_doc_ext(self, patient):
+    def diagnostic_doc_ext(self, patient_id, patient_dict):
         """
         Takes in a patient from DL pd dataframe format
         Uses translation CSV to get a BN-format patient dict
         Uses this patient dict to invoke the diagnosis doc generator
 
         Parameters:
-        patient : pandas dataframe with patient status
-        - X_columns : columns of symbipredict CSV (??)
+        patient_id : ID of patient
+        patient_dict : dictionary with patient status from DL db
         """
 
+        # CUSTOM CONSIDERATIONS
+        # low fever
+        # high fever
+        # fast heart rate
+
+
+        # find source of translation key csv
+        # find source directory
+        current_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+        translation_path = os.path.join(parent_dir, 'BN-DL_translation.csv')
+
+        # create translation dataframe
+        translation = pd.read_csv(translation_path)
+        translation = translation.drop('prognosis', axis=1) # remove prognosis from df
+
+        possible_symptoms = translation.columns
+
+        # create dict to be used for diagnosis functions
+        symptoms_dict = {}
+
         # TRANSLATE THE FORMAT OF THE PATIENT
+        for BN_symptom in translation:
+        
+            # set default value for dictionary item for this symptom
+            symptoms_dict[BN_symptom] = 0
+
+            # low fever, high fever, high hr
+
+            if BN_symptom == "mild_fever":
+
+                # mild fever if body temp between 100 and 103
+                symptoms_dict[BN_symptom] = int(100 < patient_dict["triage_vital_temp"] < 103)
+
+            elif BN_symptom == "high_fever":
+
+                # high fever if body temp at least 103
+                symptoms_dict[BN_symptom] = int(patient_dict["triage_vital_temp"] >= 103)
+
+            elif BN_symptom == "fast_heart_rate":
+
+                # fast HR if HR exceeds 100
+                symptoms_dict[BN_symptom] = int(patient_dict["triage_vital_hr"] >= 100)
+
+            else:
+
+                # print(f"Col: {BN_symptom}")
+                # set or value to a default of 0
+                check_or = 0
+
+                for DL_symptom in translation[BN_symptom].dropna():
+                    check_or |= int(patient_dict[DL_symptom])
+                    
+                    # USER VALUE OF DL_symptom
+                    # print(DL_symptom)
+
+                symptoms_dict[BN_symptom] = check_or
+
+
+
+                # set the value of the dict entry to the value of the OR statement
 
         # get the necessary info to run these functions
-        top_diagnoses = self.diagnose_patient(self.model, symptoms_dict, X_columns)
-        self.generate_bedside_document(patient_id, symptoms_dict, top_diagnoses, model, X_columns)
+        top_diagnoses = self.diagnose_patient(self.model, symptoms_dict, possible_symptoms)
+        self.generate_bedside_document(patient_id, symptoms_dict, top_diagnoses, self.model, possible_symptoms)
 
 
     def interactive_diagnosis(self, model, X_columns):
@@ -494,4 +556,6 @@ def main():
     
 
 if __name__ == "__main__":
-    main()
+    # main()
+    bn = BayesNetsDiagnostics()
+    bn.diagnostic_doc_ext(0, 0)

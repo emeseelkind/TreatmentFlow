@@ -411,6 +411,11 @@ class Menu:
                 case 3:
                     print(f"PLACEHOLDER: Bayes output for patient {patient_id}")
 
+                    # PASS IN CURRENT PATIENT TO BN FILE AND TRANSLATE FORMATs
+                    # use these translated formats to produce file
+
+                    self.patient_data.bn.diagnostic_doc_ext(patient_id, patient_dict["symptoms"])
+
                 case 4:
                     return
 

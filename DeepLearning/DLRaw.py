@@ -165,13 +165,13 @@ class DeepLearningTriage:
         # sample one real patient row from the dataset (drop 'esi') to act as the base for the user
         sample_index = np.random.choice(range(len(self.df)), size=1, replace=False)
         sample_patient = self.df.drop(columns=['esi']).iloc[sample_index]
-
+        sample_patient.index = [0] # reset index so the updating using dict works
+        
         # only update specific values if patient performs triage
         if isinstance(patient_dict, dict):
             # Step 2: Update sample patient with survey responses
             for key, value in patient_dict.items():
                 if key in sample_patient.columns:
-                    # THIS DICT ACCESSING MAY NOT WORK WITH NP DF
                     sample_patient.at[0, key] = value
 
         # predict priority
