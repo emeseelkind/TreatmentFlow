@@ -500,7 +500,7 @@ def main():
     """
     Main function to run the disease diagnosis tool with bedside document generation
     """
-    file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
+    file_path = os.path.join(os.path.dirname(__file__), "symbipredict_2022.csv")
     print("\nLoading data...")
     data = load_data(file_path)
     print("\nPreprocess Data...")

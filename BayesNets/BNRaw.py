@@ -19,7 +19,6 @@ class BayesNetsDiagnostics:
         
         # load data from source db (symbipredict)
         file_path = os.path.join(os.path.dirname(__file__), "symbipredict_2022.csv")
-        # file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
         self.df = self.load_data(file_path)
 
         # process data before building model

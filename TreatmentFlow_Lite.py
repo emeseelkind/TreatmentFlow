@@ -13,6 +13,7 @@ Text-based UI for interacting with all 3 components of TreatmentFlow:
 from CSP.HospitalClasses import Patient, HospitalRecords, print_time
 from CSP.GreedyBedAssignment import Scheduler
 from DeepLearning import DLRaw as dl
+from BayesNets import BNRaw as bn
 import os
 import numpy as np
 import random
@@ -26,6 +27,9 @@ class PatientDatabase:
         # create dl model
         self.dl = dl.DeepLearningTriage()
 
+        # create bn model
+        self.bn = bn.BayesNetsDiagnostics()
+
         self.num_patients = num_patients
         
         # create databases
@@ -36,6 +40,7 @@ class PatientDatabase:
         self.user_id = -1
 
     def update_hospital(self, num_beds):
+
         # set number of beds
         self.num_beds = num_beds
 
@@ -56,7 +61,7 @@ class PatientDatabase:
         patient["symptoms"] = user_symptoms.to_dict(orient='records')[0]
 
         # add to local database
-        if self.user_id < 0: # MUST REPLACE INDEX 0 IF USER EXISTS
+        if self.user_id < 0: # must replace index 0 if user exists
             self.patient_db.insert(0, patient)
             self.user_id = 0
         else:
@@ -132,6 +137,7 @@ class PatientDatabase:
         self.hospital.patient_list[0] = current_patient
  
     def run_hosp(self, printing):
+
         self.hospital.reset_service()
         self.scheduler.run_hospital(printing)
 
@@ -139,6 +145,7 @@ class PatientDatabase:
 class Menu:
 
     def __init__(self):
+
         self.num_patients = 0
         self.num_beds = 0
         self.patient_db = None
@@ -187,8 +194,6 @@ class Menu:
         user["triage_vital_temp"] = self.select_int("Body temperature (*F)", 90, 106)
         user["triage_vital_o2"] = self.select_int("Oxygen saturation (%)", 60, 99)
 
-        # COULD HAVE QUESTION ABOUT CHIEF COMPLAINT
-
         # systems
         print("\nBodily systems (all answers y=1 or n=0):")
 
@@ -196,6 +201,7 @@ class Menu:
         user["cc_anxiety"] = self.select_int("Anxiety", 0, 1)
         user["cc_agitation"] = self.select_int("Agitiation", 0, 1)
         user["cc_blurredvision"] = self.select_int("Blurred vision", 0, 1)
+        user["cc_fatigue"] = self.select_int("Fatigue", 0, 1)
 
         # cardiovascular
         user["cc_chestpain"] = self.select_int("Chest pain", 0, 1)
@@ -214,21 +220,29 @@ class Menu:
 
         # gastrointestinal
         user["cc_nausea"] = self.select_int("Nausea", 0, 1)
-        user["cc_vomiting"] = self.select_int("Vomiting", 0, 1)
-        user["cc_emesis"] = user["cc_vomiting"]
+        user["cc_emesis"] = self.select_int("Vomiting", 0, 1)
+        user["cc_diarrhea"] = self.select_int("Diarrhea", 0, 1)
         
         # genitourinary
         user["cc_dysuria"] = self.select_int("Difficulty or pain urinating", 0, 1)
         
+        # skin
+        skin_issues = self.select_int("Experiencing skin issues", 0, 1)
+        user["cc_rash"] = self.select_int("Skin rash", 0, skin_issues)
+        user["cc_skinirritation"] = self.select_int("Skin irritation", 0, skin_issues)
+        user["ulcerskin"] = self.select_int("Ulcers", 0, skin_issues)        
+        user["cc_skinproblem"] = self.select_int("Other skin problems", 0, skin_issues)
+
         # musculoskeletal/pain
 
         # PAIN IN REGIONS (only ask questions if user experiencing pain in region)
 
         # master attribute, determines whether others can be true
-        user["cc_pain"] = self.select_int("Experiencing pain", 0, 1)
+        user["cc_pain"] = self.select_int("\nExperiencing pain", 0, 1)
 
         # head/face/neck
         hfn_pain = self.select_int("Pain in the head/face/neck", 0, user["cc_pain"])
+        user["cc_headache"] = self.select_int("Headache", 0, hfn_pain)
         user["cc_headpain"] = self.select_int("Head pain", 0, hfn_pain)
         user["cc_dentalpain"] = self.select_int("Tooth pain", 0, hfn_pain)
         user["cc_earpain"] = self.select_int("Ear pain", 0, hfn_pain)
@@ -287,7 +301,7 @@ class Menu:
 
 
         # RECENT INJURY IN REGIONS (only ask questions if user experiencing pain in region)
-        injury = self.select_int("Recent injury", 0, 1)
+        injury = self.select_int("\nRecent injury", 0, 1)
 
         # head/face/neck
         hfn_injury = self.select_int("Injury to the head/face/neck", 0, injury)
@@ -326,12 +340,15 @@ class Menu:
         return user
 
     def observe_patient(self, patient_id):
+
+        # set patient_dict to appropriate capsule of information
         if self.patient_data.user_id < 0:
             patient_dict = self.patient_data.patient_db[patient_id - 1]
         else:
             patient_dict = self.patient_data.patient_db[patient_id]
 
         while True:
+
             # core menu
             print(f"\nPatient {patient_id}. CTAS {patient_dict['ctas']}: ")
             print(" 1. Service times")
@@ -341,6 +358,7 @@ class Menu:
 
             response = self.select_int("Choice", 1, 4)
             match response:
+
                 case 1:
                     print(f"\nPatient {patient_id} service time info:")
                     
@@ -364,7 +382,8 @@ class Menu:
                                 print(f"{symptom_name}: {symptom_value}")
 
                 case 3:
-                    print(f"PLACEHOLDER: Bayes output for patient {patient_id}")
+                    # produce diagnostic informaiton using Bayes Nets module
+                    self.patient_data.bn.diagnostic_doc_ext(patient_id, patient_dict["symptoms"])
 
                 case 4:
                     return
@@ -383,6 +402,7 @@ class Menu:
 
             response = self.select_int("Choice", 1, 3)
             match response:
+
                 case 1:
                     if self.patient_data.user_id < 0:
                         print("User data must be uploaded before access.")
@@ -418,6 +438,7 @@ class Menu:
 
             response = self.select_int("Choice", 1, 4)
             match response:
+                
                 case 1:
                     # enter user patient info (user is always patient ID 0)
                     user_arrival = self.select_int("User arrival time (by the minute)", 0, 1439)
