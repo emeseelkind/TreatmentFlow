@@ -285,7 +285,6 @@ def main():
     x_train, x_test, y_train, y_test, preprocessor = preprocess_data(DataFrame)
     print("Data loading and preprocessing complete.")
 
-    # 5 levels of patient priority
     priority_mapping = {
             1: "Immediate (Resuscitation)",
             2: "Emergency",
@@ -293,21 +292,17 @@ def main():
             4: "Less Urgent",
             5: "Non-Urgent"
         }
-    # Build the model
     print("\n -------------------------------------------------------------------------")
     print("\nBuilding deep learning model...")
     model, start_time = build_model()
-    # Train the model
     print("\n -------------------------------------------------------------------------")
     print("\nTraining deep learning model...")
     model = train_model(model, start_time, x_train, y_train)
 
-    # Evaluate the model    
     print("\n -------------------------------------------------------------------------")
     print("\nEvaluating deep learning model...")
     model = evaluate_model(model, start_time, x_test, y_test)
 
-    # Predict patient priority for sample patients
     print("\n -------------------------------------------------------------------------")
     print("\nPredicting patient priority for sample patients.")
     sample_indices = np.random.choice(range(len(DataFrame)), size=5, replace=False)
