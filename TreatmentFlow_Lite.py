@@ -14,7 +14,6 @@ from CSP.HospitalClasses import Patient, HospitalRecords, print_time
 from CSP.GreedyBedAssignment import Scheduler
 from DeepLearning import DLRaw as dl
 from BayesNets import BNRaw as bn
-import os
 import numpy as np
 import random
 import numbers
@@ -438,7 +437,7 @@ class Menu:
 
             response = self.select_int("Choice", 1, 4)
             match response:
-                
+
                 case 1:
                     # enter user patient info (user is always patient ID 0)
                     user_arrival = self.select_int("User arrival time (by the minute)", 0, 1439)
@@ -485,7 +484,14 @@ class Menu:
 
         # enter patient info (user is always patient ID 0)
         user_arrival = self.select_int("User arrival time (by the minute)", 0, 1439)
-        self.patient_data.add_user_info(user_arrival)
+
+        # randomize symptoms if preferred
+        if self.select_int("Perform triage", 0, 1):
+            self.patient_data.add_user_info(user_arrival, self.triage_survey())
+        else:
+            self.patient_data.add_user_info(user_arrival)
+
+        # fill the database with valid patients (other than user) 
         self.patient_data.fill_db()
 
         # assign hospital beds
