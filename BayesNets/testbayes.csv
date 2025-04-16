@@ -1,0 +1,14 @@
+test_number, test_diagnosis(symptoms from google), bayes_prediction, bayes_probability
+1,gerd, gerd,0.7818
+2,Peptic Ulcer Disease, Peptic Ulcer Disease,1.0
+3,AIDS, Malaria, 0.9998
+4,Hypertension, Hypertension,0.9542
+5,Migraine, Vertigo, 0.8112,
+6,Jaundice, Jaundice, 0.7368
+7,Osteoarthritis, Osteoarthritis,1.0
+8,Tuberculosis, Bronchial Asthma, 0.9988
+9,Cervical Spondylosis, 0.9986
+10,Tuberculosis, Heart Attack, 0.8901
+11,Malaria,Malaria, 0.5234 
+12,Heart Attack, Heart Attack,1.0
+

@@ -1,23 +1,25 @@
 ================================================================================
 CLINICAL DIAGNOSTIC ASSESSMENT - CONFIDENTIAL
-PATIENT ID: 5678
-DATE/TIME: 2025-04-13 11:21:04
+PATIENT ID: 5
+DATE/TIME: 2025-04-16 11:41:11
 ================================================================================
 
 REPORTED SYMPTOMS:
 --------------------------------------------------------------------------------
++ headache
 + nausea
++ pain behind the eyes
 + vomiting
 
 DIFFERENTIAL DIAGNOSIS:
 --------------------------------------------------------------------------------
 | Diagnosis                      | Probability     | Confidence Level               |
 |--------------------------------|-----------------|--------------------------------|
-| Vertigo                        | 0.3416          | Low                            *
-| Gastroenteritis                | 0.2566          | Low                            
-| Heart Attack                   | 0.2087          | Low                            
-| Paralysis (brain hemorrhage)   | 0.1689          | Very Low                       
-| Chronic Cholestasis            | 0.0207          | Very Low                       
+| Vertigo                        | 0.8112          | Very High                      *
+| Paralysis (brain hemorrhage)   | 0.1869          | Very Low                       
+| Malaria                        | 0.0011          | Very Low                       
+| Gastroenteritis                | 0.0004          | Very Low                       
+| Heart Attack                   | 0.0003          | Very Low                       
 
 * Primary diagnosis candidate
 
@@ -27,38 +29,38 @@ SUPPORTING EVIDENCE FOR PRIMARY DIAGNOSIS (Vertigo):
 |--------------------------------|-----------------|--------------------------------|
 | loss of balance                | 0.9612          | No                             |
 | unsteadiness                   | 0.9515          | No                             |
+| headache                       | 0.9417          | Yes                            |
 | vomiting                       | 0.9417          | Yes                            |
-| headache                       | 0.9417          | No                             |
 | nausea                         | 0.9320          | Yes                            |
 | spinning movements             | 0.8932          | No                             |
-| itching                        | 0.0097          | No                             |
-| skin rash                      | 0.0097          | No                             |
-| nodal skin eruptions           | 0.0097          | No                             |
-| continuous sneezing            | 0.0097          | No                             |
+| abdominal pain                 | 0.0097          | No                             |
+| abnormal menstruation          | 0.0097          | No                             |
+| acidity                        | 0.0097          | No                             |
+| acute liver failure            | 0.0097          | No                             |
 
 KEY DIFFERENTIATING FACTORS FOR ALTERNATIVE DIAGNOSES:
 --------------------------------------------------------------------------------
 
-Gastroenteritis (Probability: 0.2566):
-- diarrhoea: Importance=0.9293, Present=No
-- vomiting: Importance=0.8889, Present=Yes
-- sunken eyes: Importance=0.8889, Present=No
-- dehydration: Importance=0.8788, Present=No
-- itching: Importance=0.0101, Present=No
-
-Heart Attack (Probability: 0.2087):
-- chest pain: Importance=0.9490, Present=No
-- vomiting: Importance=0.9184, Present=Yes
-- breathlessness: Importance=0.8878, Present=No
-- sweating: Importance=0.8673, Present=No
-- itching: Importance=0.0102, Present=No
-
-Paralysis (brain hemorrhage) (Probability: 0.1689):
+Paralysis (brain hemorrhage) (Probability: 0.1869):
 - altered sensorium: Importance=0.9381, Present=No
 - weakness of one body side: Importance=0.9175, Present=No
 - vomiting: Importance=0.9072, Present=Yes
-- headache: Importance=0.8763, Present=No
-- itching: Importance=0.0103, Present=No
+- headache: Importance=0.8763, Present=Yes
+- abdominal pain: Importance=0.0103, Present=No
+
+Malaria (Probability: 0.0011):
+- muscle pain: Importance=0.9907, Present=No
+- headache: Importance=0.9626, Present=Yes
+- chills: Importance=0.9439, Present=No
+- nausea: Importance=0.9439, Present=Yes
+- high fever: Importance=0.9346, Present=No
+
+Gastroenteritis (Probability: 0.0004):
+- diarrhea: Importance=0.9293, Present=No
+- sunken eyes: Importance=0.8889, Present=No
+- vomiting: Importance=0.8889, Present=Yes
+- dehydration: Importance=0.8788, Present=No
+- abdominal pain: Importance=0.0101, Present=No
 
 RECOMMENDATIONS:
 --------------------------------------------------------------------------------

@@ -1,28 +1,29 @@
 ================================================================================
 CLINICAL DIAGNOSTIC ASSESSMENT - CONFIDENTIAL
-PATIENT ID: 9876
-DATE/TIME: 2025-04-13 11:33:55
+PATIENT ID: 3
+DATE/TIME: 2025-04-16 11:34:22
 ================================================================================
 
 REPORTED SYMPTOMS:
 --------------------------------------------------------------------------------
-+ chest pain
 + fatigue
 + headache
++ mild fever
 + muscle pain
-+ nausea
++ chills
++ skin rash
++ throat irritation
 + sweating
-+ dizziness
 
 DIFFERENTIAL DIAGNOSIS:
 --------------------------------------------------------------------------------
 | Diagnosis                      | Probability     | Confidence Level               |
 |--------------------------------|-----------------|--------------------------------|
-| Malaria                        | 0.5234          | Moderate                       *
-| Hypertension                   | 0.4574          | Moderate                       
-| Heart Attack                   | 0.0191          | Very Low                       
-| Hepatitis C                    | 0.0001          | Very Low                       
-| Vertigo                        | 0.0000          | Very Low                       
+| Malaria                        | 0.9998          | Very High                      *
+| Acne                           | 0.0001          | Very Low                       
+| Allergy                        | 0.0001          | Very Low                       
+| Fungal Infection               | 0.0000          | Very Low                       
+| Paralysis (brain hemorrhage)   | 0.0000          | Very Low                       
 
 * Primary diagnosis candidate
 
@@ -32,38 +33,38 @@ SUPPORTING EVIDENCE FOR PRIMARY DIAGNOSIS (Malaria):
 |--------------------------------|-----------------|--------------------------------|
 | muscle pain                    | 0.9907          | Yes                            |
 | headache                       | 0.9626          | Yes                            |
-| chills                         | 0.9439          | No                             |
-| nausea                         | 0.9439          | Yes                            |
-| vomiting                       | 0.9346          | No                             |
+| chills                         | 0.9439          | Yes                            |
+| nausea                         | 0.9439          | No                             |
 | high fever                     | 0.9346          | No                             |
 | sweating                       | 0.9346          | Yes                            |
-| diarrhoea                      | 0.8879          | No                             |
-| itching                        | 0.0093          | No                             |
-| skin rash                      | 0.0093          | No                             |
+| vomiting                       | 0.9346          | No                             |
+| diarrhea                       | 0.8879          | No                             |
+| abdominal pain                 | 0.0093          | No                             |
+| abnormal menstruation          | 0.0093          | No                             |
 
 KEY DIFFERENTIATING FACTORS FOR ALTERNATIVE DIAGNOSES:
 --------------------------------------------------------------------------------
 
-Hypertension  (Probability: 0.4574):
-- loss of balance: Importance=0.9515, Present=No
-- lack of concentration: Importance=0.9417, Present=No
-- headache: Importance=0.9126, Present=Yes
-- chest pain: Importance=0.8835, Present=Yes
-- dizziness: Importance=0.8835, Present=Yes
+Acne (Probability: 0.0001):
+- skin rash: Importance=0.9388, Present=Yes
+- blackheads: Importance=0.8878, Present=No
+- pus filled pimples: Importance=0.8878, Present=No
+- scurring: Importance=0.8878, Present=No
+- abdominal pain: Importance=0.0102, Present=No
 
-Heart Attack (Probability: 0.0191):
-- chest pain: Importance=0.9490, Present=Yes
-- vomiting: Importance=0.9184, Present=No
-- breathlessness: Importance=0.8878, Present=No
-- sweating: Importance=0.8673, Present=Yes
-- itching: Importance=0.0102, Present=No
+Allergy (Probability: 0.0001):
+- shivering: Importance=0.9072, Present=No
+- watering from eyes: Importance=0.9072, Present=No
+- chills: Importance=0.8969, Present=Yes
+- continuous sneezing: Importance=0.8763, Present=No
+- abdominal pain: Importance=0.0103, Present=No
 
-Hepatitis C (Probability: 0.0001):
-- nausea: Importance=0.9800, Present=Yes
-- fatigue: Importance=0.9400, Present=Yes
-- loss of appetite: Importance=0.9400, Present=No
-- family history: Importance=0.9400, Present=No
-- yellowish skin: Importance=0.9300, Present=No
+Fungal Infection (Probability: 0.0000):
+- dischromic patches: Importance=0.9010, Present=No
+- itching: Importance=0.9010, Present=No
+- nodal skin eruptions: Importance=0.8812, Present=No
+- skin rash: Importance=0.8812, Present=Yes
+- abdominal pain: Importance=0.0099, Present=No
 
 RECOMMENDATIONS:
 --------------------------------------------------------------------------------
