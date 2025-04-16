@@ -481,6 +481,8 @@ class Menu:
         self.num_beds = self.select_int("How many beds should be in the hospital?", 1, 1000)
         print("\n")
         # building database
+        print("Building patient database...")
+        print("Please wait...")
         self.patient_data = PatientDatabase(self.num_patients, self.num_beds)
 
         # enter patient info (user is always patient ID 0)
@@ -494,7 +496,7 @@ class Menu:
 
         # fill the database with valid patients (other than user) 
         self.patient_data.fill_db()
-
+        print("Assign hospital beds...")
         # assign hospital beds
         self.patient_data.assign_beds()
 
