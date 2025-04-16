@@ -1,6 +1,6 @@
 """
 TreatmentFlow
-Bayesian Networks - Disease Diagnostics from Triage Inputs (Printless Raw Version)
+Bayesian Networks - Disease Diagnostics from Triage Inputs (Printless Raw Version for integration)
 
 By Adam Neto and Emese Elkind
 Started: February 2025
@@ -10,11 +10,6 @@ CISC 352: Artificial Intelligence
 import pandas as pd
 import numpy as np
 from sklearn.naive_bayes import BernoulliNB
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import classification_report as sklearn_classification_report
-from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime
 import os
 
@@ -23,17 +18,17 @@ class BayesNetsDiagnostics:
     def __init__(self):
         
         # load data from source db (symbipredict)
-        file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
+        file_path = os.path.join(os.path.dirname(__file__), "symbipredict_2022.csv")
+        # file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
         self.df = self.load_data(file_path)
 
         # process data before building model
         X, y = self.preprocess_data(self.df)
-        X_train, X_test, y_train, y_test = self.train_test_data_split(X, y)
+
+        # TRAIN MODEL ON 100% OF THE DATA, NOT 80%
 
         # build Bayesian Network
-        self.model = self.train_model(X_train, y_train)
-
-        # TODO: RECREATE INTERACTIVE DIAGNOSIS
+        self.model = self.train_model(X, y)
 
     def load_data(self, file_path):
         """
@@ -63,25 +58,6 @@ class BayesNetsDiagnostics:
         y = data['prognosis']
         
         return X, y
-
-    def train_test_data_split(self, X, y, test_size=0.2, random_state=42):
-        """
-        Split data into training and testing sets.
-        
-        Parameters:
-        X : pd.DataFrame -Features
-        y : pd.Series -Target
-        test_size : float - Proportion of data to use for testing
-        random_state : int - Random seed for reproducibility
-            
-        Returns:
-        tuple - X_train, X_test, y_train, y_test
-        """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
-        
-        return X_train, X_test, y_train, y_test
 
     def train_model(self, X_train, y_train, alpha=1.0):
         """
@@ -183,146 +159,6 @@ class BayesNetsDiagnostics:
         sorted_importance = {k: v for k, v in sorted(importance.items(), key=lambda item: item[1], reverse=True)}
         
         return dict(list(sorted_importance.items())[:top_n])
-
-    def plot_diagnosis(self, model, symptoms_dict, X_columns, top_n=5):
-        """
-        Plot the top N probable diseases based on symptoms
-        
-        Parameters:
-        model : BernoulliNB
-        symptoms_dict : dict - Dictionary with symptom names as keys and 0/1 as values
-        X_columns : list - List of all possible symptom names
-        top_n : int - Number of top diagnoses to show
-        """
-        disease_probs = self.predict_disease(model, symptoms_dict, X_columns)
-        
-        # Get top N diseases
-        top_diseases = list(disease_probs.items())[:top_n]
-        diseases, probs = zip(*top_diseases)
-        
-        # Create bar plot
-        plt.figure(figsize=(10, 6))
-        bars = plt.bar(diseases, probs)
-        
-        # Add probability values on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{height:.2f}', ha='center', va='bottom')
-        
-        plt.xlabel('Disease')
-        plt.ylabel('Probability')
-        plt.title('Disease Diagnosis Probabilities')
-        plt.xticks(rotation=45, ha='right')
-        plt.tight_layout()
-        plt.show()
-
-    def interactive_diagnosis(self, model, X_columns):
-        """
-        Interactive command-line tool for diagnosing based on symptoms
-        
-        Parameters:
-        model : BernoulliNB
-        X_columns : list
-        """
-        print("\n=== Disease Diagnosis Tool ===")
-        
-        patient_id = input("Enter patient ID: ").strip()
-        
-        symptoms_dict = {}
-        
-        print("\nI'll ask you about different symptoms.")
-        print("Please respond with:")
-        print("  'y' or 'yes' if the symptom is present")
-        print("  'n' or 'no' if the symptom is not present")
-        print("  'skip' to skip this symptom")
-        print("  'done' to finish entering symptoms\n")
-        
-        # Define common symptoms for queries
-        common_symptoms = [
-            symptom for symptom in X_columns 
-            if any(term in symptom for term in [
-                'pain', 'fever', 'headache', 'fatigue', 'cough', 'nausea', 
-                'vomiting', 'diarrhea', 'breathing', 'rash', 'swelling'
-            ])
-        ]
-        # Sort and select the top 20 most common symptoms
-        common_symptoms = sorted(common_symptoms)[:20]
-        
-        print("\nResponding to symptom questions:")
-        for symptom in common_symptoms:
-            # Format symptom name for display (replace underscores with spaces)
-            display_name = symptom.replace('_', ' ')
-            
-            # Ask about the symptom
-            response = input(f"Does the patient have {display_name}? (y/n/skip/done): ").strip().lower()
-            
-            if response in ['done', 'exit', 'quit']:
-                break
-            elif response in ['y', 'yes']:
-                symptoms_dict[symptom] = 1
-            elif response in ['n', 'no']:
-                symptoms_dict[symptom] = 0
-            # skip the symptom if the user enters 'skip' or any other input
-        
-        # Ask if the user wants to enter additional symptoms
-        if symptoms_dict:
-            print("\nReported symptoms so far:")
-            for symptom, value in symptoms_dict.items():
-                if value == 1:
-                    print(f"- {symptom.replace('_', ' ')}")
-            
-            add_more = input("\nWould you like to enter additional symptoms? (y/n): ").strip().lower()
-            
-            if add_more in ['y', 'yes']:
-                print("\nEnter additional symptoms (type 'done' when finished):")
-                while True:
-                    symptom_input = input("Symptom name (or 'done'): ").strip()
-                    if symptom_input.lower() == 'done':
-                        break
-                        
-                    # Check if the symptom exists in our model
-                    matched_symptoms = [col for col in X_columns if symptom_input.lower() in col.lower()]
-                    
-                    if matched_symptoms:
-                        if len(matched_symptoms) > 1:
-                            print("Multiple matching symptoms found:")
-                            for i, s in enumerate(matched_symptoms):
-                                print(f"{i+1}. {s.replace('_', ' ')}")
-                            choice = int(input("Select the number of the correct symptom: ")) - 1
-                            symptom = matched_symptoms[choice]
-                        else:
-                            symptom = matched_symptoms[0]
-                            
-                        response = input(f"Is {symptom.replace('_', ' ')} present? (y/n): ").strip().lower()
-                        if response in ['y', 'yes']:
-                            symptoms_dict[symptom] = 1
-                        elif response in ['n', 'no']:
-                            symptoms_dict[symptom] = 0
-                    else:
-                        print(f"Symptom '{symptom_input}' not found in the model.")
-        
-        # Generate diagnosis
-        if symptoms_dict:
-            print("\nFinal reported symptoms:")
-            positive_symptoms_found = False
-            for symptom, value in symptoms_dict.items():
-                if value == 1:
-                    print(f"- {symptom.replace('_', ' ')}")
-                    positive_symptoms_found = True
-            
-            if not positive_symptoms_found:
-                print("No positive symptoms reported")
-            
-            print("\nGenerating diagnosis based on reported symptoms...")
-            top_diagnoses = self.diagnose_patient(model, symptoms_dict, X_columns)
-            
-            # Generate bedside document
-            self.generate_bedside_document(patient_id, symptoms_dict, top_diagnoses, model, X_columns)
-            
-            print("\nBedside document generated successfully!")
-        else:
-            print("No symptoms were entered. Cannot generate diagnosis.")
 
     def generate_bedside_document(self, patient_id, symptoms_dict, top_diagnoses, model, X_columns, output_dir="bedside_documents"):
         """
@@ -446,34 +282,65 @@ class BayesNetsDiagnostics:
         
         return filename
 
-def main():
+    def diagnostic_doc_ext(self, patient_id, patient_dict):
+        """
+        Takes in a patient from DL pd dataframe format
+        Uses translation CSV to get a BN-format patient dict
+        Uses this patient dict to invoke the diagnosis doc generator
 
-    # WILL BE REMOVED IN FINAL COPY OF BNRaw
+        Parameters:
+        patient_id : ID of patient
+        patient_dict : dictionary with patient status from DL db
+        """
 
-    """
-    Main function to run the disease diagnosis tool with bedside document generation
-    """
-    file_path = "../TreatmentFlow/BayesNets/symbipredict_2022.csv"
-    print("\nLoading data...")
-    data = load_data(file_path)
-    print("\nPreprocess Data...")
-    X, y = preprocess_data(data)    
-    print("\nTrain Bayes Network Model...")
-    X_train, X_test, y_train, y_test = train_test_data_split(X, y)
-    model = train_model(X_train, y_train)
-    print("\nEvaluate Model...")
-    y_pred, accuracy = evaluate_model(model, X_test, y_test)
-    print(f"Model accuracy on test set: {accuracy:.4f}")
-    print("\nPerform Cross Validation...")
-    cv_scores = perform_cross_validation(model, X, y)
-    # Plot confusion matrix
-    plot_confusion_matrix(y_test, y_pred, model.classes_)
-    
-    # Show cross-validation results
-    print(f"Cross-validation accuracy: {cv_scores.mean():.4f}")
-    print("\nDiagnose a patient: ")
-    interactive_diagnosis(model, X.columns)
-    
+        # find source for translation csv
+        current_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+        translation_path = os.path.join(parent_dir, 'BN-DL_translation.csv')
 
-if __name__ == "__main__":
-    main()
+        # create translation dataframe
+        translation = pd.read_csv(translation_path)
+        translation = translation.drop('prognosis', axis=1) # remove prognosis from df
+
+        possible_symptoms = translation.columns
+
+        # create dict to be used for diagnosis functions
+        symptoms_dict = {}
+
+        # TRANSLATE THE FORMAT OF THE PATIENT
+        for BN_symptom in translation:
+        
+            # set default value for dictionary item for this symptom
+            symptoms_dict[BN_symptom] = 0
+
+            # low fever, high fever, high hr
+
+            if BN_symptom == "mild_fever":
+
+                # mild fever if body temp between 100 and 103
+                symptoms_dict[BN_symptom] = int(100 < patient_dict["triage_vital_temp"] < 103)
+
+            elif BN_symptom == "high_fever":
+
+                # high fever if body temp at least 103
+                symptoms_dict[BN_symptom] = int(patient_dict["triage_vital_temp"] >= 103)
+
+            elif BN_symptom == "fast_heart_rate":
+
+                # fast HR if HR exceeds 100
+                symptoms_dict[BN_symptom] = int(patient_dict["triage_vital_hr"] >= 100)
+
+            else:
+
+                # set or value to a default of 0
+                check_or = 0
+
+                # set BN symptom to true if ANY of the associated DL symptoms are true
+                for DL_symptom in translation[BN_symptom].dropna():
+                    check_or |= int(patient_dict[DL_symptom])
+
+                symptoms_dict[BN_symptom] = check_or
+
+        # get top diagnoses and generate bedside document by invoking model
+        top_diagnoses = self.diagnose_patient(self.model, symptoms_dict, possible_symptoms)
+        self.generate_bedside_document(patient_id, symptoms_dict, top_diagnoses, self.model, possible_symptoms)
